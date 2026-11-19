@@ -133,7 +133,7 @@ export function ScriptRows({
         const selected = activeId === block.id;
         const rowClass = `script-row line-${block.kind}${selected ? " active-line" : ""}`;
         const deleteLabel = number === undefined ? `ลบบรรทัด ${type}` : `ลบหัวฉาก ${number}`;
-        const deleteButton = selected && onDelete && (
+        const deleteButton = onDelete && (
           <button
             type="button"
             className="icon-button script-delete"
