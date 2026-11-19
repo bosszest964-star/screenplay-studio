@@ -2,7 +2,7 @@
 
 import {
   ArrowLeft, BookOpen, Check, ChevronsUpDown, CircleAlert, Clapperboard, Clock3, LayoutGrid,
-  Download, LayoutList, LoaderCircle, MessageCircle, Moon, Plus, Quote, Settings2, Sun, X,
+  Download, LayoutList, LoaderCircle, MessageCircle, Moon, Plus, Quote, Redo2, Settings2, Sun, Undo2, X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { flushSync } from "react-dom";
@@ -14,8 +14,8 @@ import { getProject } from "@/lib/projects";
 import { estimateRuntime } from "@/lib/script-analytics";
 import {
   blocksFromSpeedEntries, cycleBlockKind, distinctNames, enterKinds, hasBlockContent,
-  newTextBlock, pendingSpeedEntry, sceneFields, sceneText, screenplayFormats, textBlockLabels,
-  type EditorDraft, type Project, type SceneHeading, type ScreenplayBlock, type ScreenplayFormat,
+  newTextBlock, pendingSpeedEntry, sceneFields, sceneText, screenplayFormats,
+  type Project, type SceneHeading, type ScreenplayBlock, type ScreenplayFormat,
   type SpeedSession, type TextBlock, type TextBlockKind,
 } from "@/lib/screenplay";
 import { EditorTools, QuickActions, SceneOutline } from "./editor-tools";
@@ -46,7 +46,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
   initialSceneId: string | null;
   onToggleTheme: () => void;
 }) {
-  const { draft, status, update, flush, loadLatest } = useProjectDraft(project);
+  const { draft, status, update, flush, loadLatest, restore, canUndo, canRedo } = useProjectDraft(project);
   const [starter] = useState(() => newTextBlock("sceneHeading"));
   const [activeId, setActiveId] = useState(initialSceneId);
   const [drawer, setDrawer] = useState(false);
@@ -78,6 +78,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
     return { id: heading.id, number: index + 1, title: scene.location.trim() ? sceneText(scene, draft.format) : "หัวฉากใหม่" };
   }), [scriptScenes, draft.format]);
   const currentScene = scriptScenes.find((scene) => scene.blocks.some((block) => block.id === active.id));
+  const sceneToDelete = draft.blocks.length ? scenes.find((scene) => scene.id === deleteId) : undefined;
   const runtime = useMemo(() => estimateRuntime(draft.blocks), [draft.blocks]);
 
   useEffect(() => {
@@ -85,15 +86,19 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
     document.getElementById(`row-${initialSceneId}`)?.scrollIntoView({ block: "center" });
   }, [initialSceneId, Boolean(speed)]);
 
-  function updateBlocks(change: (current: ScreenplayBlock[]) => ScreenplayBlock[]) {
+  useEffect(() => {
+    if (deleteId && !sceneToDelete) setDeleteId(null);
+  }, [deleteId, sceneToDelete]);
+
+  function updateBlocks(change: (current: ScreenplayBlock[]) => ScreenplayBlock[], typingField?: string) {
     update((current) => ({
       ...current,
       blocks: change(current.blocks.length ? current.blocks : [starter]),
-    }));
+    }), typingField);
   }
 
-  function patchBlock(id: string, change: (block: ScreenplayBlock) => ScreenplayBlock) {
-    updateBlocks((current) => current.map((block) => block.id === id ? change(block) : block));
+  function patchBlock(id: string, change: (block: ScreenplayBlock) => ScreenplayBlock, typingField?: string) {
+    updateBlocks((current) => current.map((block) => block.id === id ? change(block) : block), typingField);
   }
 
   function setScene(id: string, changes: Partial<SceneHeading>) {
@@ -101,7 +106,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
       if (block.kind !== "sceneHeading") return block;
       const scene = { ...sceneFields(block), ...changes };
       return { ...block, scene, text: scene.location ? sceneText(scene) : "" };
-    });
+    }, changes.location === undefined ? undefined : fieldId(id));
   }
 
   function focusField(id: string, field = "text", position?: number) {
@@ -111,14 +116,15 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
   }
 
   function editAndFocus(
-    change: (current: ScreenplayBlock[]) => ScreenplayBlock[], id: string, field = "text", position?: number,
+    change: (current: ScreenplayBlock[]) => ScreenplayBlock[], id: string, field: string | null = "text", position?: number,
   ) {
     flushSync(() => {
       updateBlocks(change);
       setActiveId(id);
       setDrawer(false);
     });
-    focusField(id, field, position);
+    if (field) focusField(id, field, position);
+    else document.getElementById(`row-${id}`)?.focus({ preventScroll: true });
   }
 
   function addKind(kind: TextBlockKind, reuseEmpty = true) {
@@ -183,13 +189,37 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
     setReferences(touch.matches ? "drawer" : "panel");
   }
 
-  function removeBlock(id: string) {
-    const index = blocks.findIndex((block) => block.id === id);
-    const next = blocks[index - 1] ?? blocks[index + 1] ?? newTextBlock("sceneHeading");
-    editAndFocus((current) => {
-      const remaining = current.filter((block) => block.id !== id);
-      return remaining.length ? remaining : [next];
-    }, next.id, next.kind === "audioVisual" ? "visual" : "text");
+  function removeBlock(id: string, focusInput = false) {
+    const index = draft.blocks.findIndex((block) => block.id === id);
+    if (index < 0) return;
+    const offset = focusInput ? -1 : 1;
+    const next = draft.blocks[index + offset] ?? draft.blocks[index - offset] ?? starter;
+    editAndFocus((current) => current.filter((block) => block.id !== id),
+      next.id, focusInput ? (next.kind === "audioVisual" ? "visual" : "text") : null);
+  }
+
+  function requestDelete(id: string, focusInput = false) {
+    const target = draft.blocks.find((block) => block.id === id);
+    if (!target) return;
+    if (target.kind === "sceneHeading") {
+      setDrawer(false);
+      setDeleteId(id);
+      return;
+    }
+    removeBlock(id, focusInput);
+  }
+
+  function stepHistory(direction: "undo" | "redo") {
+    const next = restore(direction);
+    if (!next) return;
+    const previousIds = new Set(draft.blocks.map((block) => block.id));
+    const restored = next.blocks.find((block) => !previousIds.has(block.id));
+    const selected = restored ?? next.blocks.find((block) => block.id === active.id) ??
+      next.blocks[Math.min(next.blocks.length - 1, blocks.indexOf(active))] ?? starter;
+    setActiveId(selected.id);
+    if (restored && !next.speedSession) {
+      requestAnimationFrame(() => document.getElementById(`row-${selected.id}`)?.scrollIntoView({ block: "nearest" }));
+    }
   }
 
   function editorKeys(event: KeyboardEvent<TextControl>, block: TextBlock) {
@@ -210,7 +240,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
     }
     if (event.key === "Backspace" && !hasBlockContent(block) && blocks.length > 1) {
       event.preventDefault();
-      removeBlock(block.id);
+      requestDelete(block.id, true);
       return;
     }
     if (event.key !== "Enter" || event.shiftKey) return;
@@ -233,7 +263,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
     setSpeedError("");
     update((current) => current.speedSession
       ? { ...current, speedSession: { ...current.speedSession, ...changes } }
-      : current);
+      : current, changes.text !== undefined && Object.keys(changes).length === 1 ? "speed-text" : undefined);
   }
 
   function enterSpeed() {
@@ -289,10 +319,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
   );
   const tools = (
     <EditorTools names={characters} activeKind={active.kind} onKind={addKind} onCharacter={addCharacter}
-      onDelete={() => {
-        if (hasBlockContent(active)) { setDrawer(false); setDeleteId(active.id); }
-        else if (blocks.length > 1) removeBlock(active.id);
-      }} />
+      onDelete={() => requestDelete(active.id)} />
   );
   const formatSelect = (
     <div className="editor-format">
@@ -319,12 +346,18 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
           <h1>{project.name}</h1>
         </div>
         <div className="editor-project-links">
+          <div className="editor-history" role="group" aria-label="ประวัติการแก้ไข">
+            <button type="button" className="icon-button" aria-label="ย้อนกลับ (Undo)" title="ย้อนกลับ (Undo)"
+              disabled={!canUndo} onClick={() => stepHistory("undo")}><Undo2 size={19} /></button>
+            <button type="button" className="icon-button" aria-label="ทำซ้ำ (Redo)" title="ทำซ้ำ (Redo)"
+              disabled={!canRedo} onClick={() => stepHistory("redo")}><Redo2 size={19} /></button>
+          </div>
           <a className="editor-timer" href={productionHref(project.id, "analytics")} onClick={saveBeforeNavigation}
             aria-label={`สถิติบท · ${runtime.pages} หน้า · ${runtime.minutes} นาทีโดยประมาณ`}>
             <Clock3 size={15} /> <span>{runtime.pages} หน้า · {runtime.minutes} นาทีโดยประมาณ</span>
           </a>
-          <a className="secondary-button editor-planning" href={productionHref(project.id)} onClick={saveBeforeNavigation}>
-            <LayoutGrid size={16} /> วางแผนเรื่อง
+          <a className="secondary-button editor-planning" aria-label="วางแผนเรื่อง" href={productionHref(project.id)} onClick={saveBeforeNavigation}>
+            <LayoutGrid size={16} /> <span>วางแผนเรื่อง</span>
           </a>
         </div>
         <div className="editor-top-actions">
@@ -379,9 +412,10 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
                 <ScriptRows
                   blocks={blocks} scenes={scenes} characters={characters} locations={locations}
                   format={draft.format} dialogueQuotes={dialogueQuotes} activeId={active.id} onActivate={setActiveId}
-                  onText={(id, text) => patchBlock(id, (block) => block.kind === "audioVisual" ? block : { ...block, text })}
+                  onDelete={draft.blocks.length ? requestDelete : undefined}
+                  onText={(id, text) => patchBlock(id, (block) => block.kind === "audioVisual" ? block : { ...block, text }, fieldId(id))}
                   onScene={setScene}
-                  onColumn={(id, side, value) => patchBlock(id, (block) => ({ ...block, [side]: value }))}
+                  onColumn={(id, side, value) => patchBlock(id, (block) => ({ ...block, [side]: value }), fieldId(id, side))}
                   onKeyDown={editorKeys}
                 />
                 <div className="paper-footer">
@@ -435,12 +469,12 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
           <SceneReferences scene={currentScene} project={project} onNavigate={saveBeforeNavigation} />
         </Dialog>
       )}
-      {deleteId && (
-        <Dialog title="ลบบรรทัดบท" onClose={() => setDeleteId(null)}>
-          <p className="dialog-text">ลบ {active.kind === "audioVisual" ? "แถวภาพ–เสียง" : textBlockLabels[active.kind]} และข้อมูลในบรรทัดนี้หรือไม่?</p>
+      {sceneToDelete && (
+        <Dialog title="ลบหัวฉาก" onClose={() => setDeleteId(null)}>
+          <p className="dialog-text">ลบหัวฉาก {sceneToDelete.number} หรือไม่? ระบบจะเรียงเลขฉากใหม่</p>
           <div className="dialog-actions">
-            <button type="button" className="secondary-button" onClick={() => setDeleteId(null)}>ยกเลิก</button>
-            <button type="button" className="danger-button" onClick={() => { const id = deleteId; setDeleteId(null); removeBlock(id); }}>ลบบรรทัด</button>
+            <button type="button" className="secondary-button" data-initial-focus onClick={() => setDeleteId(null)}>ยกเลิก</button>
+            <button type="button" className="danger-button" onClick={() => { setDeleteId(null); removeBlock(sceneToDelete.id); }}>ลบหัวฉาก</button>
           </div>
         </Dialog>
       )}

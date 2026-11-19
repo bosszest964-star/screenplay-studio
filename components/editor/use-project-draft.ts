@@ -5,6 +5,10 @@ import { DraftConflict, saveProjectDraft } from "@/lib/projects";
 import type { EditorDraft, Project } from "@/lib/screenplay";
 
 type SaveStatus = "saved" | "saving" | "error" | "conflict";
+type DraftContent = Pick<EditorDraft, "blocks" | "speedSession">;
+
+const historyLimit = 100;
+const typingInterval = 750;
 
 function projectDraft(project: Project): EditorDraft {
   return {
@@ -24,6 +28,11 @@ export function useProjectDraft(project: Project) {
     persisted: draft,
     running: null as Promise<boolean> | null,
   });
+  const history = useRef({
+    undo: [] as DraftContent[],
+    redo: [] as DraftContent[],
+    typing: null as { field: string; at: number } | null,
+  });
 
   function loadLatest(latest: Project) {
     const next = projectDraft(latest);
@@ -31,6 +40,7 @@ export function useProjectDraft(project: Project) {
     current.revision = latest.editorRevision ?? 0;
     current.draft = next;
     current.persisted = next;
+    history.current = { undo: [], redo: [], typing: null };
     setDraft(next);
     setStatus("saved");
   }
@@ -79,14 +89,49 @@ export function useProjectDraft(project: Project) {
     return current.running;
   }
 
-  function update(change: (draft: EditorDraft) => EditorDraft) {
-    const current = queue.current;
-    const next = change(current.draft);
-    if (next === current.draft) return;
-    current.draft = next;
+  function commit(next: EditorDraft) {
+    queue.current.draft = next;
     setDraft(next);
     if (status !== "conflict") void flush();
   }
 
-  return { draft, status, update, flush, loadLatest };
+  function update(change: (draft: EditorDraft) => EditorDraft, typingField?: string) {
+    const current = queue.current.draft;
+    const next = change(current);
+    if (next === current) return;
+
+    const edits = history.current;
+    if (next.blocks !== current.blocks || next.speedSession !== current.speedSession) {
+      const now = Date.now();
+      const previous = edits.typing;
+      if (!previous || previous.field !== typingField || now - previous.at > typingInterval) {
+        edits.undo.push(current);
+        if (edits.undo.length > historyLimit) edits.undo.shift();
+      }
+      edits.redo.length = 0;
+      edits.typing = typingField ? { field: typingField, at: now } : null;
+    } else {
+      edits.typing = null;
+    }
+
+    commit(next);
+  }
+
+  function restore(direction: "undo" | "redo") {
+    const edits = history.current;
+    const snapshot = edits[direction].pop();
+    if (!snapshot) return;
+    const current = queue.current.draft;
+    edits[direction === "undo" ? "redo" : "undo"].push(current);
+    edits.typing = null;
+    const next = { ...current, blocks: snapshot.blocks, speedSession: snapshot.speedSession };
+    commit(next);
+    return next;
+  }
+
+  return {
+    draft, status, update, flush, loadLatest, restore,
+    canUndo: history.current.undo.length > 0,
+    canRedo: history.current.redo.length > 0,
+  };
 }

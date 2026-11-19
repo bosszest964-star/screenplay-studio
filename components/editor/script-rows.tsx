@@ -1,11 +1,12 @@
 "use client";
 
+import { Trash2 } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import {
   sceneFields, sceneTimes, textBlockLabels, type SceneHeading, type ScreenplayBlock,
   type ScreenplayFormat, type TextBlock,
 } from "@/lib/screenplay";
-import { ScriptTextarea, SuggestionInput } from "./fields";
+import { keepTypingFocus, ScriptTextarea, SuggestionInput } from "./fields";
 
 export interface SceneIndex {
   id: string;
@@ -24,6 +25,7 @@ interface ScriptRowsProps {
   dialogueQuotes: boolean;
   activeId: string;
   onActivate: (id: string) => void;
+  onDelete?: (id: string) => void;
   onText: (id: string, text: string) => void;
   onScene: (id: string, fields: Partial<SceneHeading>) => void;
   onColumn: (id: string, side: "visual" | "audio", value: string) => void;
@@ -117,7 +119,7 @@ function BlockText({
 
 export function ScriptRows({
   blocks, scenes, characters, locations, format, dialogueQuotes, activeId, onActivate,
-  onText, onScene, onColumn, onKeyDown,
+  onDelete, onText, onScene, onColumn, onKeyDown,
 }: ScriptRowsProps) {
   const table = format === "two-column";
   const sceneNumbers = new Map(scenes.map(({ id, number }) => [id, number]));
@@ -128,7 +130,24 @@ export function ScriptRows({
       {blocks.map((block) => {
         const number = sceneNumbers.get(block.id);
         const type = block.kind === "audioVisual" ? "ภาพและเสียง" : textBlockLabels[block.kind];
-        const rowClass = `script-row line-${block.kind}${activeId === block.id ? " active-line" : ""}`;
+        const selected = activeId === block.id;
+        const rowClass = `script-row line-${block.kind}${selected ? " active-line" : ""}`;
+        const deleteLabel = number === undefined ? `ลบบรรทัด ${type}` : `ลบหัวฉาก ${number}`;
+        const deleteButton = selected && onDelete && (
+          <button
+            type="button"
+            className="icon-button script-delete"
+            aria-label={deleteLabel}
+            title={deleteLabel}
+            onPointerDown={keepTypingFocus}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(block.id);
+            }}
+          >
+            <Trash2 size={16} />
+          </button>
+        );
         const text = block.kind !== "audioVisual" && (
           <BlockText {...{ block, characters, locations, format, dialogueQuotes, onText, onScene, onKeyDown }} />
         );
@@ -159,19 +178,21 @@ export function ScriptRows({
           };
           return (
             <div
-              key={block.id} id={`row-${block.id}`} className={rowClass} role="row"
+              key={block.id} id={`row-${block.id}`} className={rowClass} role="row" tabIndex={-1}
               onFocus={() => onActivate(block.id)}
+              onClick={() => onActivate(block.id)}
             >
               <div className="script-cell" role="cell">{cell("visual")}</div>
-              <div className="script-cell" role="cell">{cell("audio")}</div>
+              <div className="script-cell" role="cell">{cell("audio")}{deleteButton}</div>
             </div>
           );
         }
 
         return (
           <div
-            key={block.id} id={`row-${block.id}`} className={rowClass}
+            key={block.id} id={`row-${block.id}`} className={rowClass} tabIndex={-1}
             onFocus={() => onActivate(block.id)}
+            onClick={() => onActivate(block.id)}
           >
             {tag}
             <div className="script-line-content">
@@ -183,6 +204,7 @@ export function ScriptRows({
                 </div>
               )}
             </div>
+            {deleteButton}
           </div>
         );
       })}
