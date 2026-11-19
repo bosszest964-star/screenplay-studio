@@ -318,8 +318,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
     <SceneOutline scenes={scenes} onSelect={selectScene} onAdd={() => addKind("sceneHeading")} onDetails={openReferences} />
   );
   const tools = (
-    <EditorTools names={characters} activeKind={active.kind} onKind={addKind} onCharacter={addCharacter}
-      onDelete={() => requestDelete(active.id)} />
+    <EditorTools names={characters} activeKind={active.kind} onKind={addKind} onCharacter={addCharacter} />
   );
   const formatSelect = (
     <div className="editor-format">
@@ -345,25 +344,29 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
           <span className="editor-title-icon"><Clapperboard size={19} /></span>
           <h1>{project.name}</h1>
         </div>
-        <div className="editor-project-links">
-          <div className="editor-history" role="group" aria-label="ประวัติการแก้ไข">
-            <button type="button" className="icon-button" aria-label="ย้อนกลับ (Undo)" title="ย้อนกลับ (Undo)"
-              disabled={!canUndo} onClick={() => stepHistory("undo")}><Undo2 size={19} /></button>
-            <button type="button" className="icon-button" aria-label="ทำซ้ำ (Redo)" title="ทำซ้ำ (Redo)"
-              disabled={!canRedo} onClick={() => stepHistory("redo")}><Redo2 size={19} /></button>
+        <div className="editor-work-actions">
+          <div className="editor-project-links">
+            <a className="editor-timer" href={productionHref(project.id, "analytics")} onClick={saveBeforeNavigation}
+              aria-label={`สถิติบท · ${runtime.pages} หน้า · ${runtime.minutes} นาทีโดยประมาณ`}>
+              <Clock3 size={15} /> <span>{runtime.pages} หน้า · {runtime.minutes} นาทีโดยประมาณ</span>
+            </a>
+            <a className="secondary-button editor-planning" aria-label="วางแผนเรื่อง" href={productionHref(project.id)} onClick={saveBeforeNavigation}>
+              <LayoutGrid size={16} /> <span>วางแผนเรื่อง</span>
+            </a>
           </div>
-          <a className="editor-timer" href={productionHref(project.id, "analytics")} onClick={saveBeforeNavigation}
-            aria-label={`สถิติบท · ${runtime.pages} หน้า · ${runtime.minutes} นาทีโดยประมาณ`}>
-            <Clock3 size={15} /> <span>{runtime.pages} หน้า · {runtime.minutes} นาทีโดยประมาณ</span>
-          </a>
-          <a className="secondary-button editor-planning" aria-label="วางแผนเรื่อง" href={productionHref(project.id)} onClick={saveBeforeNavigation}>
-            <LayoutGrid size={16} /> <span>วางแผนเรื่อง</span>
-          </a>
+          <div className="editor-document-actions">
+            <button type="button" className="secondary-button editor-export" aria-label="ส่งออกบท" title="ส่งออกบท"
+              onClick={() => setExporting(true)}><Download size={17} /><span>ส่งออก</span></button>
+            <div className="editor-history" role="group" aria-label="ประวัติการแก้ไข">
+              <button type="button" className="icon-button" aria-label="ย้อนกลับ (Undo)" title="ย้อนกลับ (Undo)"
+                disabled={!canUndo} onClick={() => stepHistory("undo")}><Undo2 size={19} /></button>
+              <button type="button" className="icon-button" aria-label="ทำซ้ำ (Redo)" title="ทำซ้ำ (Redo)"
+                disabled={!canRedo} onClick={() => stepHistory("redo")}><Redo2 size={19} /></button>
+            </div>
+          </div>
         </div>
         <div className="editor-top-actions">
           <GoogleStatus beforeConnect={flush} />
-          <button type="button" className="secondary-button editor-export" aria-label="ส่งออกบท" title="ส่งออกบท"
-            onClick={() => setExporting(true)}><Download size={17} /><span>ส่งออก</span></button>
           <span className={`save-status save-${status}`} role="status">
             {status === "saved" ? <Check size={15} /> : status === "saving" ? <LoaderCircle size={15} /> : <CircleAlert size={15} />}
             <span>{saveLabels[status]}</span>

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  ArrowRightToLine, BookOpen, Clapperboard, MapPin, Parentheses, Plus, Quote, TextAlignStart, Trash2, UserRound,
+  ArrowRightToLine, BookOpen, Clapperboard, MapPin, Parentheses, Plus, Quote, TextAlignStart, UserRound,
 } from "lucide-react";
 import type { TextBlockKind } from "@/lib/screenplay";
 import { textBlockLabels } from "@/lib/screenplay";
@@ -82,12 +82,11 @@ export function CharacterChips({ names, onSelect, current, onAdd }: {
   );
 }
 
-export function EditorTools({ activeKind, names, onKind, onCharacter, onDelete }: {
+export function EditorTools({ activeKind, names, onKind, onCharacter }: {
   activeKind: string;
   names: string[];
   onKind: (kind: TextBlockKind) => void;
   onCharacter: (name: string) => void;
-  onDelete: () => void;
 }) {
   return (
     <>
@@ -108,9 +107,6 @@ export function EditorTools({ activeKind, names, onKind, onCharacter, onDelete }
           <CharacterChips names={names} onSelect={onCharacter} />
         </>
       )}
-      <button type="button" className="editor-delete danger-text" onClick={onDelete}>
-        <Trash2 size={15} /> ลบบรรทัดที่เลือก
-      </button>
       <div className="key-guide"><kbd>Enter</kbd> ขึ้นบรรทัด <kbd>Tab</kbd> เปลี่ยนประเภท <kbd>Esc</kbd> ออกจากบรรทัด</div>
     </>
   );
