@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { GoogleProvider } from "@/components/google/google-provider";
 import "@fontsource/sarabun/400.css";
 import "@fontsource/sarabun/500.css";
 import "@fontsource/sarabun/600.css";
@@ -42,7 +43,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script dangerouslySetInnerHTML={{ __html: initializeTheme }} />
       </head>
-      <body>{children}</body>
+      <body><GoogleProvider>{children}</GoogleProvider></body>
     </html>
   );
 }

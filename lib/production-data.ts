@@ -1,5 +1,5 @@
 import { boardCards, nameKey, orderScriptByBoard, type BeatCard, type CharacterProfile, type LocationProfile } from "./production";
-import { db, getProject } from "./projects";
+import { db, getProject, nextProjectTimestamp } from "./projects";
 import { sceneText, type Project, type ScreenplayBlock, type TextBlock } from "./screenplay";
 
 async function currentProject(id: string) {
@@ -19,7 +19,7 @@ async function changeBoard(projectId: string, change: (
     const nextBlocks = result.blocks;
     await db.projects.update(projectId, {
       beats: result.cards,
-      updatedAt: Date.now(),
+      updatedAt: nextProjectTimestamp(project),
       ...(nextBlocks && nextBlocks !== project.blocks && {
         blocks: nextBlocks,
         editorRevision: (project.editorRevision ?? 0) + 1,
@@ -119,7 +119,7 @@ export async function saveReference(projectId: string, edit: ReferenceEdit & {
     const update = edit.type === "characters"
       ? { characters: replaceRecord(project.characters ?? [], { ...edit.profile, ...details }) }
       : { locations: replaceRecord(project.locations ?? [], { ...edit.profile, ...details }) };
-    await db.projects.update(projectId, { ...update, updatedAt: Date.now() });
+    await db.projects.update(projectId, { ...update, updatedAt: nextProjectTimestamp(project) });
   });
 }
 
@@ -144,6 +144,6 @@ export async function deleteReference(projectId: string, type: ReferenceEdit["ty
             : card),
         }
       : { locations: project.locations?.filter((record) => record.id !== id) };
-    await db.projects.update(projectId, { ...update, updatedAt: Date.now() });
+    await db.projects.update(projectId, { ...update, updatedAt: nextProjectTimestamp(project) });
   });
 }

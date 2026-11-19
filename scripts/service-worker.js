@@ -1,3 +1,6 @@
+import { backgroundSyncTag, synchronizeGoogleDrive } from "../lib/google/sync";
+import { db } from "../lib/projects";
+
 const cachePrefix = "sceneform-shell-";
 const cacheName = cachePrefix + "__CACHE_VERSION__";
 const precacheUrls = "__PRECACHE_URLS__";
@@ -11,7 +14,17 @@ const navigationPaths = new Map([
   ["/production", "/production/"],
   ["/production/", "/production/"],
   ["/production/index.html", "/production/"],
+  ["/print", "/print/"],
+  ["/print/", "/print/"],
+  ["/print/index.html", "/print/"],
 ]);
+
+self.addEventListener("sync", (event) => {
+  if (event.tag !== backgroundSyncTag) return;
+  event.waitUntil((async () => {
+    if (await db.cloudConnection.get("google")) await synchronizeGoogleDrive();
+  })());
+});
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

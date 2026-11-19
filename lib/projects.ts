@@ -1,4 +1,4 @@
-import Dexie, { type EntityTable } from "dexie";
+import Dexie, { type EntityTable, type Table } from "dexie";
 import type { EditorDraft, Project } from "./screenplay";
 
 interface WorkspaceSetting {
@@ -6,16 +6,32 @@ interface WorkspaceSetting {
   value: boolean;
 }
 
-interface ReferenceImage {
+export interface ReferenceImage {
   id: string;
   projectId: string;
   blob: Blob;
+}
+
+export interface CloudBookmark {
+  accountId: string;
+  projectId: string;
+  remoteId: string;
+  hash: string;
+  localVersion?: number;
+}
+
+interface CloudConnection {
+  id: "google";
+  accountId: string;
+  email?: string;
 }
 
 export const db = new Dexie("sceneform-workspace") as Dexie & {
   projects: EntityTable<Project, "id">;
   settings: EntityTable<WorkspaceSetting, "key">;
   referenceImages: EntityTable<ReferenceImage, "id">;
+  cloudBookmarks: Table<CloudBookmark, [string, string]>;
+  cloudConnection: EntityTable<CloudConnection, "id">;
 };
 
 db.version(1).stores({
@@ -24,6 +40,14 @@ db.version(1).stores({
 });
 
 db.version(2).stores({ referenceImages: "id, projectId" });
+db.version(3).stores({
+  cloudBookmarks: "[accountId+projectId], accountId",
+  cloudConnection: "id",
+});
+
+export function nextProjectTimestamp(project: Pick<Project, "updatedAt">) {
+  return Math.max(Date.now(), project.updatedAt + 1);
+}
 
 export const projectNameLimit = 100;
 
@@ -97,12 +121,12 @@ export async function createProject(name: string) {
 }
 
 export async function renameProject(id: string, name: string) {
-  const changed = await db.projects.update(id, {
-    name: normalizeName(name),
-    updatedAt: Date.now(),
+  const normalized = normalizeName(name);
+  await db.transaction("rw", db.projects, async () => {
+    const project = await db.projects.get(id);
+    if (!project) throw new Error("ไม่พบโปรเจกต์นี้");
+    await db.projects.update(id, { name: normalized, updatedAt: nextProjectTimestamp(project) });
   });
-
-  if (!changed) throw new Error("ไม่พบโปรเจกต์นี้");
 }
 
 export async function deleteProject(id: string) {
@@ -126,7 +150,7 @@ export async function saveProjectDraft(id: string, revision: number, draft: Edit
     await db.projects.update(id, {
       ...draft,
       editorRevision: nextRevision,
-      updatedAt: Date.now(),
+      updatedAt: nextProjectTimestamp(project),
     });
     return nextRevision;
   });

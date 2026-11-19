@@ -1,0 +1,10 @@
+.export-options { display: grid; gap: 8px; font-size: 14px; }
+.export-options > p { color: var(--muted); }
+.export-options > .export-format { margin-bottom: 4px; color: var(--accent); font-weight: 600; }
+.export-options :is(button, a) { justify-content: flex-start; }
+.export-options a[aria-disabled="true"] { pointer-events: none; opacity: .63; }
+.editor-export { min-height: 38px; color: var(--accent); white-space: nowrap; flex: none; }
+@media (max-width: 760px) {
+  .editor-export { width: 36px; min-height: 36px; padding: 0; }
+  .editor-export > span { display: none; }
+}
