@@ -11,6 +11,8 @@ import {
 } from "@/lib/projects";
 import { screenplayFormats, type Project } from "@/lib/screenplay";
 import { Dialog } from "./dialog";
+import { useGoogle } from "./google/google-provider";
+import { GoogleStatus } from "./google/google-status";
 import { formatDate, ProjectCard } from "./project-card";
 import { usePwa } from "./use-pwa";
 import { useTheme } from "./use-theme";
@@ -35,6 +37,7 @@ function Brand() {
 export function Dashboard() {
   const toggleTheme = useTheme();
   const { installed, online, requestInstall } = usePwa();
+  const { connected: googleConnected } = useGoogle();
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [initialized, setInitialized] = useState<number>();
   const [initializationError, setInitializationError] = useState<number>();
@@ -192,6 +195,7 @@ export function Dashboard() {
             <span>พื้นที่ทำงาน</span><ChevronRight size={14} /><strong>โปรเจกต์</strong>
           </div>
           <div className="topbar-actions">
+            <GoogleStatus />
             <label className="search-box">
               <Search size={17} />
               <input
@@ -354,7 +358,9 @@ export function Dashboard() {
         >
           <form onSubmit={saveProject} aria-busy={busy}>
             {modal.kind === "delete" ? (
-              <p className="dialog-text">ลบ <strong>{modal.project.name}</strong> ออกจากพื้นที่ทำงานหรือไม่? การลบนี้ย้อนกลับไม่ได้</p>
+              <p className="dialog-text">ลบ <strong>{modal.project.name}</strong> ออกจากพื้นที่ทำงานหรือไม่?{googleConnected
+                ? " การลบจะซิงค์ไปยังอุปกรณ์อื่นผ่าน Drive เมื่อออนไลน์"
+                : " การลบนี้ย้อนกลับไม่ได้"}</p>
             ) : (
               <label className="name-field">
                 ชื่อโปรเจกต์

@@ -2,11 +2,13 @@
 
 import {
   ArrowLeft, BookOpen, Check, ChevronsUpDown, CircleAlert, Clapperboard, Clock3, LayoutGrid,
-  LayoutList, LoaderCircle, MessageCircle, Moon, Plus, Quote, Settings2, Sun, X,
+  Download, LayoutList, LoaderCircle, MessageCircle, Moon, Plus, Quote, Settings2, Sun, X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { flushSync } from "react-dom";
 import { Dialog } from "@/components/dialog";
+import { ExportDialog } from "@/components/export/export-dialog";
+import { GoogleStatus } from "@/components/google/google-status";
 import { productionHref, splitScript } from "@/lib/production";
 import { getProject } from "@/lib/projects";
 import { estimateRuntime } from "@/lib/script-analytics";
@@ -48,6 +50,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
   const [starter] = useState(() => newTextBlock("sceneHeading"));
   const [activeId, setActiveId] = useState(initialSceneId);
   const [drawer, setDrawer] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [references, setReferences] = useState<"panel" | "drawer" | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [confirmReload, setConfirmReload] = useState(false);
@@ -325,6 +328,9 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
           </a>
         </div>
         <div className="editor-top-actions">
+          <GoogleStatus beforeConnect={flush} />
+          <button type="button" className="secondary-button editor-export" aria-label="ส่งออกบท" title="ส่งออกบท"
+            onClick={() => setExporting(true)}><Download size={17} /><span>ส่งออก</span></button>
           <span className={`save-status save-${status}`} role="status">
             {status === "saved" ? <Check size={15} /> : status === "saving" ? <LoaderCircle size={15} /> : <CircleAlert size={15} />}
             <span>{saveLabels[status]}</span>
@@ -423,6 +429,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
           )}
         </Dialog>
       )}
+      {exporting && <ExportDialog project={{ ...project, ...draft }} flush={flush} onClose={() => setExporting(false)} />}
       {references === "drawer" && currentScene && (
         <Dialog title="ข้อมูลฉาก" drawer onClose={() => setReferences(null)}>
           <SceneReferences scene={currentScene} project={project} onNavigate={saveBeforeNavigation} />

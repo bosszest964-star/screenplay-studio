@@ -1,0 +1,20 @@
+.google-status { min-height: 38px; color: var(--accent); white-space: nowrap; flex: none; }
+.google-status[data-status="synced"] { color: var(--success); }
+.google-status[data-status="offline"] { color: var(--muted); }
+.google-status[data-status="error"] { color: var(--danger); }
+.google-status[data-status="syncing"] > svg { animation: google-spin 1.2s linear infinite; }
+@keyframes google-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .google-status[data-status="syncing"] > svg { animation: none; } }
+.google-panel { display: grid; gap: 10px; font-size: 14px; }
+.google-panel > p { color: var(--muted); }
+.google-panel .dialog-actions { margin-top: 3px; }
+.google-account {
+  display: flex; align-items: center; gap: 9px; padding: 9px;
+  border-radius: 9px; background: var(--surface-subtle); overflow-wrap: anywhere;
+}
+.google-account > svg { flex: none; color: var(--accent); }
+.google-account p { color: var(--faint); }
+@media (max-width: 760px) {
+  .google-status { width: 36px; min-height: 36px; padding: 0; }
+  .google-status > span { display: none; }
+}

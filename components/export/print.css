@@ -1,0 +1,51 @@
+.print-page {
+  min-height: 100dvh;
+  padding: 16px clamp(8px, 3vw, 36px) 36px;
+  background: var(--canvas);
+}
+.print-toolbar, .print-toolbar > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.print-toolbar { justify-content: space-between; max-width: 794px; margin: 0 auto 14px; }
+.print-message { max-width: 794px; margin: 14px auto; color: var(--muted); }
+.print-document {
+  max-width: 794px;
+  min-height: 80vh;
+  margin-inline: auto;
+  padding: clamp(15px, 5vw, 74px);
+  background: #fff;
+  color: #19151c;
+  box-shadow: var(--shadow);
+  font: 12pt / 1.55 Sarabun, sans-serif;
+  overflow-wrap: anywhere;
+}
+.print-cover {
+  display: grid; place-content: center; text-align: center;
+  min-height: min(70vh, 680px); gap: 9px; margin-bottom: 32px;
+}
+.print-cover h1 { font-size: 26pt; line-height: 1.35; font-weight: 700; }
+.print-cover p { font-size: 13pt; }
+.print-paragraph { margin-block: 0 4pt; white-space: pre-wrap; }
+.print-sceneHeading { margin-top: 7pt; }
+.print-dialogue, .print-action { margin-bottom: 7pt; }
+.print-format-international .print-script { font-family: "Courier Prime", Sarabun, monospace; }
+.print-format-international .print-character { margin-inline-start: 34%; }
+.print-format-international .print-dialogue { margin-inline: 20% 15%; }
+.print-format-international .print-parenthetical { margin-inline: 25% 18%; }
+.print-format-international .print-transition { text-align: end; }
+.print-av { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.print-av th, .print-av td { width: 50%; border: 1px solid #bbb6c0; padding: 5pt 7pt; vertical-align: top; white-space: pre-wrap; }
+.print-av th { background: #f1eef4; font-weight: 700; text-align: left; }
+.print-scene-row { font-weight: 700; }
+
+@page { size: A4; margin: 16mm 16mm 19mm; }
+@media print {
+  @page { @bottom-center { content: counter(page); font: 10pt Sarabun, sans-serif; } }
+  @page :first { @bottom-center { content: none; } }
+  html, body, .print-page { min-height: 0; padding: 0; background: #fff !important; }
+  .print-toolbar, .print-message { display: none !important; }
+  .print-document { max-width: none; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+  .print-cover { min-height: 210mm; margin: 0; break-after: page; }
+  .print-sceneHeading, .print-character, .print-parenthetical { break-after: avoid; }
+  .print-paragraph { orphans: 2; widows: 2; }
+  .print-av thead { display: table-header-group; }
+  .print-av th { print-color-adjust: exact; }
+}
