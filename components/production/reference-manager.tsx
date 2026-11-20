@@ -137,11 +137,16 @@ function ReferenceForm({ type, profile, projectId, onClose }: {
   );
 }
 
-export function ReferenceManager({ project, type }: { project: Project; type: ReferenceType }) {
+export function ReferenceManager({ project, type, initialReference }: {
+  project: Project;
+  type: ReferenceType;
+  initialReference: string | null;
+}) {
   const copy = profileCopy[type];
   const Icon = copy.icon;
   const records = project[type] ?? [];
-  const [profile, setProfile] = useState<Profile | null | undefined>();
+  const [profile, setProfile] = useState<Profile | null | undefined>(() =>
+    initialReference === "new" ? null : records.find(({ id }) => id === initialReference));
 
   return (
     <>

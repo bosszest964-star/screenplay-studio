@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useId, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 
 export function isComposing(event: KeyboardEvent<HTMLElement>) {
   return event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229;
@@ -9,6 +9,25 @@ export function isComposing(event: KeyboardEvent<HTMLElement>) {
 export function keepTypingFocus(event: PointerEvent) {
   if (document.activeElement instanceof HTMLInputElement ||
       document.activeElement instanceof HTMLTextAreaElement) event.preventDefault();
+}
+
+export function pressBeforeBlur(activate: () => void) {
+  return {
+    onPointerDown(event: PointerEvent<HTMLElement>) {
+      if (!event.isPrimary || event.button !== 0) return;
+      event.preventDefault();
+      if (event.pointerType === "mouse") activate();
+    },
+    onPointerUp(event: PointerEvent<HTMLElement>) {
+      if (!event.isPrimary || event.pointerType === "mouse" || event.button !== 0) return;
+      // Scrolling a touch list cancels the pointer. A tap can commit before the synthetic click.
+      if (event.currentTarget.contains(document.elementFromPoint(event.clientX, event.clientY))) activate();
+    },
+    onClick(event: MouseEvent<HTMLElement>) {
+      event.stopPropagation();
+      if (event.detail === 0) activate();
+    },
+  };
 }
 
 interface TextAreaProps {
@@ -49,29 +68,35 @@ interface SuggestionInputProps {
   value: string;
   choices: string[];
   placeholder: string;
+  showAll: boolean;
+  onDismiss: () => void;
   onChange: (value: string) => void;
   onKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
-  onChoose?: () => void;
+  onChoose: (value: string) => void;
 }
 
 export function SuggestionInput({
-  id, label, value, choices, placeholder, onChange, onKeyDown, onChoose,
+  id, label, value, choices, placeholder, showAll, onDismiss, onChange, onKeyDown, onChoose,
 }: SuggestionInputProps) {
   const listId = useId();
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const query = value.trim().toLocaleLowerCase("th");
-  const matches = choices.filter((choice) => {
+  const matches = showAll ? choices : choices.filter((choice) => {
     const normalized = choice.toLocaleLowerCase("th");
     return normalized !== query && normalized.includes(query);
   }).slice(0, 7);
-  const visible = open && matches.length > 0;
+  const visible = (showAll || open) && matches.length > 0;
 
-  function select(choice: string) {
-    onChange(choice);
+  function dismiss() {
     setOpen(false);
     setActive(-1);
-    onChoose?.();
+    if (showAll) onDismiss();
+  }
+
+  function select(choice: string) {
+    dismiss();
+    onChoose(choice);
   }
 
   function keyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -80,7 +105,9 @@ export function SuggestionInput({
       event.preventDefault();
       setOpen(true);
       const next = event.key === "ArrowDown" ? active + 1 : active < 0 ? matches.length - 1 : active - 1;
-      setActive((next + matches.length) % matches.length);
+      const index = (next + matches.length) % matches.length;
+      setActive(index);
+      document.getElementById(`${listId}-${index}`)?.scrollIntoView({ block: "nearest" });
       return;
     }
     if (visible && event.key === "Enter" && matches[active]) {
@@ -88,10 +115,9 @@ export function SuggestionInput({
       select(matches[active]);
       return;
     }
-    if (visible && event.key === "Escape") {
+    if ((visible || showAll) && event.key === "Escape") {
       event.preventDefault();
-      setOpen(false);
-      setActive(-1);
+      dismiss();
       return;
     }
     onKeyDown(event);
@@ -113,23 +139,29 @@ export function SuggestionInput({
         placeholder={placeholder}
         onFocus={() => setOpen(true)}
         onClick={() => setOpen(true)}
-        onBlur={() => { setOpen(false); setActive(-1); }}
-        onChange={(event) => { onChange(event.target.value); setOpen(true); setActive(-1); }}
+        onBlur={dismiss}
+        onChange={(event) => {
+          if (showAll) onDismiss();
+          onChange(event.target.value);
+          setOpen(true);
+          setActive(-1);
+        }}
         onKeyDown={keyDown}
       />
       {visible && (
         <div className="suggestion-list" id={listId} role="listbox" aria-label={label}>
           {matches.map((choice, index) => (
-            <div
+            <button
               key={choice}
               id={`${listId}-${index}`}
+              type="button"
               role="option"
+              tabIndex={-1}
               aria-selected={index === active}
-              onPointerDown={keepTypingFocus}
-              onClick={() => select(choice)}
+              {...pressBeforeBlur(() => select(choice))}
             >
               {choice}
-            </div>
+            </button>
           ))}
         </div>
       )}

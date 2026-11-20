@@ -11,8 +11,10 @@ export const productionViews = {
 
 export type ProductionView = keyof typeof productionViews;
 
-export function productionHref(projectId: string, view: ProductionView = "board") {
-  return `/production/?project=${encodeURIComponent(projectId)}&view=${view}`;
+export function productionHref(projectId: string, view: ProductionView = "board", reference?: string) {
+  const query = new URLSearchParams({ project: projectId, view });
+  if (reference) query.set("reference", reference);
+  return `/production/?${query}`;
 }
 
 export const beatColors = {

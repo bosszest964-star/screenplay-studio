@@ -49,6 +49,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
   const { draft, status, update, flush, loadLatest, restore, canUndo, canRedo } = useProjectDraft(project);
   const [starter] = useState(() => newTextBlock("sceneHeading"));
   const [activeId, setActiveId] = useState(initialSceneId);
+  const [allSuggestionsId, setAllSuggestionsId] = useState<string | null>(null);
   const [drawer, setDrawer] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [references, setReferences] = useState<"panel" | "drawer" | null>(null);
@@ -101,12 +102,19 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
     updateBlocks((current) => current.map((block) => block.id === id ? change(block) : block), typingField);
   }
 
-  function setScene(id: string, changes: Partial<SceneHeading>) {
+  function setScene(id: string, changes: Partial<SceneHeading>, typing = changes.location !== undefined) {
     patchBlock(id, (block) => {
       if (block.kind !== "sceneHeading") return block;
       const scene = { ...sceneFields(block), ...changes };
       return { ...block, scene, text: scene.location ? sceneText(scene) : "" };
-    }, changes.location === undefined ? undefined : fieldId(id));
+    }, typing ? fieldId(id) : undefined);
+  }
+
+  function chooseLocation(id: string, location: string) {
+    const heading = blocks.find((block) => block.id === id);
+    if (heading?.kind === "sceneHeading" && sceneFields(heading).location !== location) {
+      setScene(id, { location }, false);
+    }
   }
 
   function focusField(id: string, field = "text", position?: number) {
@@ -131,49 +139,87 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
     if (reuseEmpty && active.kind === kind && !hasBlockContent(active)) {
       if (drawer) flushSync(() => setDrawer(false));
       focusField(active.id);
-      return;
+      return active.id;
     }
     if (reuseEmpty && active.kind !== "audioVisual" && !hasBlockContent(active)) {
       editAndFocus((current) => current.map((block) =>
         block.id === active.id ? { ...active, kind } : block,
       ), active.id, "text", 0);
-      return;
+      return active.id;
     }
     const next = newTextBlock(kind);
     editAndFocus((current) => insertAfter(current, active.id, [next]), next.id, "text", 0);
+    return next.id;
   }
 
   function quickAction(action: TextBlockKind | "location") {
-    if (action !== "location") return addKind(action);
-    if (active.kind === "sceneHeading") return focusField(active.id);
-    addKind("sceneHeading");
+    if (action !== "location" && action !== "character") {
+      addKind(action);
+      return;
+    }
+    const kind = action === "location" ? "sceneHeading" : "character";
+    if (active.kind === kind) {
+      focusField(active.id);
+      setAllSuggestionsId(active.id);
+    } else {
+      setAllSuggestionsId(addKind(kind, active.kind !== "sceneHeading"));
+    }
   }
 
-  function addCharacter(name: string) {
-    const dialogue = newTextBlock("dialogue");
-    const alreadySelected = active.kind === "character" &&
-      active.text.trim().toLocaleLowerCase("th") === name.toLocaleLowerCase("th");
+  function dismissSuggestions(id: string) {
+    setAllSuggestionsId((current) => current === id ? null : current);
+  }
 
-    if (alreadySelected) {
-      const following = blocks[blocks.indexOf(active) + 1];
-      if (following?.kind === "dialogue") {
-        if (drawer) flushSync(() => setDrawer(false));
-        focusField(following.id);
-      } else {
-        editAndFocus((current) => insertAfter(current, active.id, [dialogue]), dialogue.id, "text", 0);
-      }
+  function chooseCharacter(id: string, name: string) {
+    const index = blocks.findIndex((block) => block.id === id);
+    const cue = blocks[index];
+    if (cue?.kind !== "character") return;
+    const nextIndex = blocks.findIndex((block, position) => position > index && block.kind !== "parenthetical");
+    const following = blocks[nextIndex];
+    if (following?.kind === "dialogue" && cue.text === name) {
+      if (drawer) flushSync(() => setDrawer(false));
+      focusField(following.id);
       return;
     }
 
-    const character = newTextBlock("character", name);
+    const dialogue = following?.kind === "dialogue" ? following : newTextBlock("dialogue");
+    const beforeDialogue = blocks[nextIndex === -1 ? blocks.length - 1 : nextIndex - 1];
     editAndFocus((current) => {
-      if (active.kind !== "audioVisual" && !hasBlockContent(active)) {
+      const renamed = current.map((block) => block.id === cue.id ? { ...cue, text: name } : block);
+      return following === dialogue ? renamed : insertAfter(renamed, beforeDialogue.id, [dialogue]);
+    }, dialogue.id, "text", 0);
+  }
+
+  function addCharacter(name: string) {
+    if (active.kind === "character") {
+      chooseCharacter(active.id, name);
+      return;
+    }
+    const character = newTextBlock("character", name);
+    const dialogue = newTextBlock("dialogue");
+    editAndFocus((current) => {
+      if (active.kind !== "audioVisual" && active.kind !== "sceneHeading" && !hasBlockContent(active)) {
         return current.flatMap((block) => block.id === active.id
           ? [{ ...active, kind: "character", text: name }, dialogue]
           : [block]);
       }
       return insertAfter(current, active.id, [character, dialogue]);
     }, dialogue.id, "text", 0);
+  }
+
+  function applyReferenceLocation(location: string) {
+    if (!currentScene) return;
+    chooseLocation(currentScene.heading.id, location);
+    setReferences(null);
+  }
+
+  function insertReferenceCharacter(name: string) {
+    const lastBlock = currentScene?.blocks.at(-1);
+    if (!lastBlock) return;
+    const character = newTextBlock("character", name);
+    const dialogue = newTextBlock("dialogue");
+    flushSync(() => setReferences(null));
+    editAndFocus((current) => insertAfter(current, lastBlock.id, [character, dialogue]), dialogue.id, "text", 0);
   }
 
   function selectScene(id: string) {
@@ -320,6 +366,10 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
   const tools = (
     <EditorTools names={characters} activeKind={active.kind} onKind={addKind} onCharacter={addCharacter} />
   );
+  const sceneReferences = currentScene && (
+    <SceneReferences scene={currentScene} project={project} onNavigate={saveBeforeNavigation}
+      onLocation={applyReferenceLocation} onCharacter={insertReferenceCharacter} />
+  );
   const formatSelect = (
     <div className="editor-format">
       <select ref={formatRef} aria-label="รูปแบบบท" value={draft.format}
@@ -415,6 +465,8 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
                 <ScriptRows
                   blocks={blocks} scenes={scenes} characters={characters} locations={locations}
                   format={draft.format} dialogueQuotes={dialogueQuotes} activeId={active.id} onActivate={setActiveId}
+                  allSuggestionsId={allSuggestionsId} onDismissSuggestions={dismissSuggestions}
+                  onChooseLocation={chooseLocation} onChooseCharacter={chooseCharacter}
                   onDelete={draft.blocks.length ? requestDelete : undefined}
                   onText={(id, text) => patchBlock(id, (block) => block.kind === "audioVisual" ? block : { ...block, text }, fieldId(id))}
                   onScene={setScene}
@@ -444,7 +496,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
                 <h2>ข้อมูลฉาก</h2>
                 <button type="button" className="icon-button" aria-label="ปิดข้อมูลฉาก" onClick={() => setReferences(null)}><X size={17} /></button>
               </div>
-              <SceneReferences scene={currentScene} project={project} onNavigate={saveBeforeNavigation} />
+              {sceneReferences}
             </>
           ) : tools)}
         </aside>
@@ -469,7 +521,7 @@ export function ScreenplayEditor({ project, initialSceneId, onToggleTheme }: {
       {exporting && <ExportDialog project={{ ...project, ...draft }} flush={flush} onClose={() => setExporting(false)} />}
       {references === "drawer" && currentScene && (
         <Dialog title="ข้อมูลฉาก" drawer onClose={() => setReferences(null)}>
-          <SceneReferences scene={currentScene} project={project} onNavigate={saveBeforeNavigation} />
+          {sceneReferences}
         </Dialog>
       )}
       {sceneToDelete && (
