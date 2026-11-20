@@ -3,11 +3,11 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   ArrowDownToLine, Check, ChevronRight, Clapperboard, Database, Film, FolderOpen,
-  LayoutGrid, List, Menu, Moon, Plus, Search, Settings, Sun, Upload, WifiOff,
+  LayoutGrid, List, Menu, Moon, Plus, RotateCcw, Search, Settings, Sun, Upload, WifiOff,
 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  createProject, deleteProject, initializeWorkspace, listProjects, projectNameLimit, renameProject,
+  createProject, deleteProject, initializeWorkspace, listProjects, projectNameLimit, renameProject, resetSampleProjects,
 } from "@/lib/projects";
 import { screenplayFormats, type Project } from "@/lib/screenplay";
 import { restoreBackup } from "@/lib/export/backup";
@@ -22,6 +22,7 @@ type Modal =
   | { kind: "create" }
   | { kind: "settings" }
   | { kind: "install" }
+  | { kind: "samples" }
   | { kind: "details"; project: Project }
   | { kind: "rename"; project: Project }
   | { kind: "delete"; project: Project };
@@ -138,8 +139,8 @@ export function Dashboard() {
   async function saveProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!modal || busy) return;
-    if (modal.kind !== "create" && modal.kind !== "rename" && modal.kind !== "delete") return;
-    if (modal.kind !== "delete" && !name.trim()) {
+    if (modal.kind !== "create" && modal.kind !== "rename" && modal.kind !== "delete" && modal.kind !== "samples") return;
+    if ((modal.kind === "create" || modal.kind === "rename") && !name.trim()) {
       setError("กรุณาระบุชื่อโปรเจกต์");
       return;
     }
@@ -154,9 +155,13 @@ export function Dashboard() {
       } else if (modal.kind === "rename") {
         await renameProject(modal.project.id, name);
         setToast("เปลี่ยนชื่อโปรเจกต์แล้ว");
-      } else {
+      } else if (modal.kind === "delete") {
         await deleteProject(modal.project.id);
         setToast("ลบโปรเจกต์แล้ว");
+      } else {
+        await resetSampleProjects();
+        setQuery("");
+        setToast("โหลดโปรเจกต์ตัวอย่างทั้ง 3 เรื่องแล้ว");
       }
       setModal(null);
     } catch {
@@ -261,13 +266,19 @@ export function Dashboard() {
                   <h2 id="project-heading" tabIndex={-1}>{normalizedQuery ? "ผลการค้นหา" : "โปรเจกต์ของฉัน"}</h2>
                   <p>{visibleProjects ? `${visibleProjects.length} โปรเจกต์` : "รายการโปรเจกต์บทภาพยนตร์"}</p>
                 </div>
-                <div className="view-switch" role="group" aria-label="มุมมองรายการโปรเจกต์">
-                  <button type="button" aria-pressed={view === "grid"} aria-label="มุมมองการ์ด" onClick={() => setView("grid")}>
-                    <LayoutGrid size={17} />
+                <div className="project-list-actions">
+                  <button type="button" className="secondary-button project-samples-button" disabled={!projects}
+                    onClick={() => show({ kind: "samples" })}>
+                    <RotateCcw size={16} /> โหลด/รีเซ็ตโปรเจกต์ตัวอย่าง
                   </button>
-                  <button type="button" aria-pressed={view === "list"} aria-label="มุมมองรายการ" onClick={() => setView("list")}>
-                    <List size={19} />
-                  </button>
+                  <div className="view-switch" role="group" aria-label="มุมมองรายการโปรเจกต์">
+                    <button type="button" aria-pressed={view === "grid"} aria-label="มุมมองการ์ด" onClick={() => setView("grid")}>
+                      <LayoutGrid size={17} />
+                    </button>
+                    <button type="button" aria-pressed={view === "list"} aria-label="มุมมองรายการ" onClick={() => setView("list")}>
+                      <List size={19} />
+                    </button>
+                  </div>
                 </div>
               </div>
               {storageError ? (
@@ -378,6 +389,18 @@ export function Dashboard() {
             <button className="secondary-button danger-text" type="button" onClick={() => show({ kind: "delete", project: modal.project })}>ลบโปรเจกต์</button>
             <button className="primary-button" type="button" onClick={() => show({ kind: "rename", project: modal.project })}>เปลี่ยนชื่อ</button>
           </div>
+        </Dialog>
+      )}
+      {modal?.kind === "samples" && (
+        <Dialog key="samples" title="โหลด/รีเซ็ตโปรเจกต์ตัวอย่าง" onClose={() => setModal(null)} busy={busy}>
+          <form onSubmit={saveProject} aria-busy={busy}>
+            <p className="dialog-text">โหลดตัวอย่างทั้ง 3 เรื่องกลับมา การแก้ไขในโปรเจกต์ตัวอย่างเดิมจะถูกแทนที่ด้วยฉบับตั้งต้น</p>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <div className="dialog-actions">
+              <button className="secondary-button" type="button" data-initial-focus disabled={busy} onClick={() => setModal(null)}>ยกเลิก</button>
+              <button className="danger-button" type="submit" disabled={busy}>{busy ? "กำลังโหลด…" : "ยืนยันโหลดตัวอย่าง"}</button>
+            </div>
+          </form>
         </Dialog>
       )}
       {modal && (modal.kind === "create" || modal.kind === "rename" || modal.kind === "delete") && (

@@ -248,6 +248,8 @@ button:disabled { cursor: default; opacity: .63; }
 }
 .section-heading h2 { font-size: 24px; font-weight: 700; line-height: 1.38; letter-spacing: -.025em; }
 .section-heading p { margin-top: 4px; color: var(--faint); font-size: 13px; }
+.project-list-actions { display: flex; align-items: center; gap: 7px; }
+.project-samples-button { min-height: 37px; padding-inline: 8px; font-size: 13px; }
 .view-switch {
   @apply flex shrink-0 items-center gap-1;
   padding: 4px;
@@ -521,6 +523,9 @@ button:disabled { cursor: default; opacity: .63; }
   .projects-section { margin-top: 20px; }
   .section-heading { margin-bottom: 11px; }
   .section-heading h2 { font-size: 20px; }
+  .projects-section .section-heading { flex-wrap: wrap; }
+  .project-list-actions { flex: 1 1 100%; justify-content: space-between; }
+  .project-samples-button { min-height: 44px; }
   .project-grid, .loading-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .view-list { grid-template-columns: minmax(0, 1fr); }
   .project-cover { height: 95px; }
