@@ -17,11 +17,11 @@ Sceneform is an offline-first screenplay workspace with a responsive Thai interf
 - Add characters and locations to the project libraries. The names appear as autocomplete suggestions in the editor. In the scene outline, open a scene's reference panel to see the location and the characters named in its cues or assigned on its beat card. Reference images are stored in the current browser's IndexedDB.
 - Click the page and runtime estimate in the editor to open analytics. The estimate uses about 55 formatted script lines per page and one minute per page. Analytics counts authored dialogue lines and segments Thai words with the browser's locale-aware word segmenter.
 
-## Google Drive and export
+## Quick Sync and export
 
-- Connect Google Drive from the dashboard or editor to sync projects and reference images across devices. Local edits continue to save in IndexedDB. The app syncs on reconnect and on resume, and supported browsers also run the service worker queue. Use **ดึงโปรเจกต์จาก Drive** to reconcile immediately.
-- Use **ส่งออกบท** to download a Thai-ready PDF, open the print preview, or create a separate Google Docs document in the project folder. The selected screenplay format controls all three outputs.
-- Google credentials are optional. See the [Thai Google setup guide](SETUP_GOOGLE.md) for OAuth Client ID, scopes, and Vercel variables.
+- Use **ซิงค์ข้อมูล** to deploy the included Google Apps Script from the in-app three-step setup. Connect another device with the QR or pairing link.
+- **ส่งออกบท** can create a Google Doc through the linked script, copy formatted text to the clipboard, download a PDF, or download a portable project backup with reference images.
+- Open a backup from **เปิดไฟล์สำรอง** on the dashboard. See the [Thai setup guide](SETUP_GOOGLE.md) for details.
 
 ## Production checks
 
@@ -33,6 +33,6 @@ npm run typecheck
 npm run build
 ```
 
-The production build places the static app in `out/`. Deploy the repository on Vercel with the included configuration to serve the static export alongside the optional `/api/google` function. Serve the app over HTTPS for OAuth, the service worker, and PWA installation. Once the service worker finishes its initial installation, the dashboard, editor, planning tools, analytics and PDF export work offline.
+The production build places the static app in `out/`. Deploy the repository on Vercel with the included configuration to serve the static export alongside the `/api/quick-sync` relay without server credentials. Serve the app over HTTPS for the service worker, and PWA installation. Once the service worker finishes its initial installation, the dashboard, editor, planning tools, analytics and PDF export work offline.
 
 Projects and chat drafts live in IndexedDB on the current browser profile and origin. The first launch creates three sample projects. See [AGENTS.md](AGENTS.md) for the project architecture and Cloud workflow.

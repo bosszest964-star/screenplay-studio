@@ -3,13 +3,14 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   ArrowDownToLine, Check, ChevronRight, Clapperboard, Database, Film, FolderOpen,
-  LayoutGrid, List, Menu, Moon, Plus, Search, Settings, Sun, WifiOff,
+  LayoutGrid, List, Menu, Moon, Plus, Search, Settings, Sun, Upload, WifiOff,
 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   createProject, deleteProject, initializeWorkspace, listProjects, projectNameLimit, renameProject,
 } from "@/lib/projects";
 import { screenplayFormats, type Project } from "@/lib/screenplay";
+import { restoreBackup } from "@/lib/export/backup";
 import { Dialog } from "./dialog";
 import { useGoogle } from "./google/google-provider";
 import { GoogleStatus } from "./google/google-status";
@@ -50,6 +51,23 @@ export function Dashboard() {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  const backupInput = useRef<HTMLInputElement>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState("");
+
+  async function openBackup(file: File) {
+    setRestoring(true);
+    setRestoreError("");
+    try {
+      const project = await restoreBackup(file);
+      setQuery("");
+      setToast(`เปิดไฟล์สำรอง “${project.name}” แล้ว`);
+    } catch (failure) {
+      setRestoreError(failure instanceof Error ? failure.message : "กู้คืนโปรเจกต์ไม่สำเร็จ");
+    } finally {
+      setRestoring(false);
+    }
+  }
 
   useEffect(() => {
     let current = true;
@@ -220,7 +238,20 @@ export function Dashboard() {
                 <div className="hero-icon"><Film size={19} strokeWidth={1.7} /></div>
                 <h1 id="hero-heading">สตูดิโอเขียนบท</h1>
                 <p>พื้นที่จัดการบทภาพยนตร์ของคุณ<br className="hero-line-break" /> พร้อมทำงานได้ทุกที่ แม้ออฟไลน์</p>
-                {newProjectButton("primary-button hero-button")}
+                <div className="hero-actions">
+                  {newProjectButton("primary-button hero-button")}
+                  <button type="button" className="secondary-button hero-restore" disabled={!projects || restoring}
+                    onClick={() => backupInput.current?.click()}>
+                    <Upload size={17} /> {restoring ? "กำลังเปิดไฟล์…" : "เปิดไฟล์สำรอง"}
+                  </button>
+                  <input ref={backupInput} type="file" accept=".sceneform.json,.json,application/json" hidden
+                    aria-label="เลือกไฟล์สำรอง" onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      event.currentTarget.value = "";
+                      if (file) void openBackup(file);
+                    }} />
+                </div>
+                {restoreError && <p role="alert" className="hero-restore-error">{restoreError}</p>}
               </div>
             </section>
 

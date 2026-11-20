@@ -34,7 +34,7 @@ The dashboard handles local project creation, rename and deletion, appearance, a
 
 ## Phase 4
 
-- Keep the offline Next.js static export and use the standalone Vercel function at `/api/google` for authorization code flow with PKCE and encrypted HttpOnly sessions. Request only `drive.file` and `documents`. Cloud configuration is optional.
-- Keep project and reference data authoritative in IndexedDB. Store per-account sync bookmarks in Dexie v3. Use immutable Drive snapshots with parent references to detect divergent edits and keep both versions. Upload reference images before publishing a snapshot.
-- Run the same reconciliation from the visible app and from the service worker when Background Sync is available. Only cache the static shell and local fonts. Keep OAuth and Google API responses out of the service worker cache.
-- Build PDF, print preview, and one-way Google Docs export from the same screenplay representation. Bundle Thai-capable Sarabun font files and their licenses for offline PDF export.
+- Keep the offline Next.js static export. Quick Sync connects the user’s own Google Apps Script Web App through the credential-free Vercel relay at `/api/quick-sync`. Validate the Google deployment URL and its ContentService redirect. Keep pairing keys in client-side IndexedDB and share them only in URL fragments.
+- Keep project and reference data authoritative in IndexedDB. Store sync bookmarks per deployment and keep Quick Sync connections in Dexie v4. Use immutable Drive snapshots with parent references to detect divergent edits and keep both versions. Upload reference images before publishing a snapshot.
+- Run the same reconciliation from the visible app and from the service worker when Background Sync is available. Only cache the static shell and local fonts. Keep Quick Sync responses out of the service worker cache.
+- Build PDF, print preview, Rich Text copy, and one-way Google Docs export from the same screenplay representation. Bundle Thai-capable Sarabun font files and their licenses for offline PDF export.

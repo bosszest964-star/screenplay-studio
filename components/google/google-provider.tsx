@@ -3,61 +3,48 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { db } from "@/lib/projects";
-import { GoogleRequestError } from "@/lib/google/drive";
-import { backgroundSyncTag, synchronizeGoogleDrive } from "@/lib/google/sync";
+import { backgroundSyncTag, synchronizeQuickSync } from "@/lib/google/sync";
+import { QuickSyncClient } from "@/lib/quick-sync/client";
+import type { SyncLink } from "@/lib/quick-sync/link";
 
-const syncLabels = {
-  checking: "Google Drive",
-  setup: "Google Drive",
-  disconnected: "Google Drive",
-  syncing: "Syncing",
-  synced: "Synced",
-  offline: "Offline",
-  error: "Sync error",
-} as const;
-
-type SyncStatus = keyof typeof syncLabels;
-
-interface GoogleContextValue {
+type SyncStatus = "disconnected" | "syncing" | "synced" | "offline" | "error";
+const syncLabels: Record<SyncStatus, string> = {
+  disconnected: "ยังไม่ได้เชื่อมต่อ", syncing: "กำลังซิงค์", synced: "ซิงค์แล้ว", offline: "ออฟไลน์", error: "ซิงค์ไม่สำเร็จ",
+};
+type GoogleContextValue = {
   status: SyncStatus;
   label: string;
-  configured: boolean | null;
   connected: boolean;
-  email?: string;
+  connection?: SyncLink;
   online: boolean;
   message: string;
   sync: () => Promise<void>;
+  connect: (link: SyncLink) => Promise<void>;
   disconnect: () => Promise<void>;
-}
-
+};
 const GoogleContext = createContext<GoogleContextValue | null>(null);
 
 async function queueBackgroundSync() {
-  const serviceWorker = navigator.serviceWorker;
-  if (!serviceWorker?.controller) return;
+  const worker = navigator.serviceWorker;
+  if (!worker?.controller) return;
   try {
-    const registration = await serviceWorker.ready as ServiceWorkerRegistration & {
-      sync?: { register(tag: string): Promise<void> };
-    };
+    const registration = await worker.ready as ServiceWorkerRegistration & { sync?: { register(tag: string): Promise<void> } };
     await registration.sync?.register(backgroundSyncTag);
-  } catch {
-    // Browsers without Background Sync retry on reconnect or when the app resumes.
-  }
+  } catch {}
 }
 
 export function GoogleProvider({ children }: { children: ReactNode }) {
   const [online, setOnline] = useState(true);
-  const [configured, setConfigured] = useState<boolean | null>(null);
-  const [status, setStatus] = useState<SyncStatus>("checking");
+  const [status, setStatus] = useState<SyncStatus>("disconnected");
   const [message, setMessage] = useState("");
   const pending = useRef<Promise<void> | null>(null);
-  const signingOut = useRef(false);
   const rerun = useRef(false);
-  const connection = useLiveQuery(() => db.cloudConnection.get("google").catch(() => undefined), []);
+  const disconnecting = useRef(false);
+  const connection = useLiveQuery(() => db.quickSync.get("workspace").catch(() => undefined), []);
   const changes = useLiveQuery(() => db.projects.orderBy("updatedAt").keys().catch(() => []), []);
 
   const sync = useCallback(function run(): Promise<void> {
-    if (signingOut.current) return Promise.resolve();
+    if (disconnecting.current) return Promise.resolve();
     if (!navigator.onLine) {
       void queueBackgroundSync();
       return Promise.resolve();
@@ -66,57 +53,38 @@ export function GoogleProvider({ children }: { children: ReactNode }) {
       rerun.current = true;
       return pending.current;
     }
-
     setStatus("syncing");
-    const operation = (async () => {
+    setMessage("");
+    const task = (async () => {
       try {
-        const result = await synchronizeGoogleDrive();
-        setConfigured(result.configured);
-        if (result.connected) {
-          setStatus("synced");
-          if (result.conflicts) setMessage(`เก็บฉบับขัดแย้งเป็นโปรเจกต์แยก ${result.conflicts} รายการแล้ว`);
-        } else {
-          await db.cloudConnection.delete("google");
-          setStatus(result.configured ? "disconnected" : "setup");
-        }
+        const conflicts = await synchronizeQuickSync();
+        setStatus("synced");
+        if (conflicts) setMessage(`เก็บฉบับขัดแย้งเป็นโปรเจกต์แยก ${conflicts} รายการแล้ว`);
       } catch (error) {
-        if (error instanceof GoogleRequestError && error.status === 429) {
-          setMessage("Google จำกัดจำนวนคำขอชั่วคราว ระบบจะลองซิงค์อีกครั้ง");
-        } else {
-          setMessage("ซิงค์ Drive ไม่สำเร็จ ข้อมูลยังบันทึกอยู่ในเครื่อง");
-        }
+        setMessage(error instanceof Error ? error.message : "ซิงค์ไม่สำเร็จ ข้อมูลยังบันทึกอยู่ในเครื่อง");
         setStatus("error");
       } finally {
         pending.current = null;
-        if (rerun.current && !signingOut.current) {
+        if (rerun.current && !disconnecting.current) {
           rerun.current = false;
           void run();
         }
       }
     })();
-    pending.current = operation;
-    return operation;
+    pending.current = task;
+    return task;
   }, []);
 
   useEffect(() => {
-    const update = () => {
-      setOnline(navigator.onLine);
-      if (navigator.onLine) void sync();
-    };
-    const url = new URL(window.location.href);
-    if (url.searchParams.has("google")) {
-      if (url.searchParams.get("google") === "error") setMessage("เชื่อมต่อ Google ไม่สำเร็จ ลองเชื่อมต่ออีกครั้ง");
-      url.searchParams.delete("google");
-      window.history.replaceState(window.history.state, "", url);
-    }
-    update();
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
+    const network = () => setOnline(navigator.onLine);
+    network();
+    window.addEventListener("online", network);
+    window.addEventListener("offline", network);
     return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
+      window.removeEventListener("online", network);
+      window.removeEventListener("offline", network);
     };
-  }, [sync]);
+  }, []);
 
   useEffect(() => {
     if (!connection) return;
@@ -126,55 +94,50 @@ export function GoogleProvider({ children }: { children: ReactNode }) {
     }
     const timer = window.setTimeout(() => void sync(), 1_700);
     return () => window.clearTimeout(timer);
-  }, [changes, online, connection?.accountId, sync]);
+  }, [changes, online, connection?.endpoint, connection?.key, sync]);
 
   useEffect(() => {
-    if (configured === false || (!connection && status !== "error")) return;
-    const awake = () => {
+    if (!connection || !online) return;
+    const refresh = () => {
       if (document.visibilityState === "visible") void sync();
     };
-    document.addEventListener("visibilitychange", awake);
-    window.addEventListener("focus", awake);
-    const timer = window.setInterval(awake, 45_000);
+    document.addEventListener("visibilitychange", refresh);
+    const timer = window.setInterval(refresh, 45_000);
     return () => {
-      document.removeEventListener("visibilitychange", awake);
-      window.removeEventListener("focus", awake);
+      document.removeEventListener("visibilitychange", refresh);
       window.clearInterval(timer);
     };
-  }, [configured, connection?.accountId, status === "error", sync]);
+  }, [online, connection?.endpoint, connection?.key, sync]);
+
+  async function connect(link: SyncLink) {
+    await new QuickSyncClient(link).verify();
+    await db.quickSync.put({ ...link, id: "workspace" });
+    void sync();
+  }
 
   async function disconnect() {
-    signingOut.current = true;
+    disconnecting.current = true;
     rerun.current = false;
-    setMessage("");
     try {
       await pending.current;
-      const signOut = async () => {
-        const response = await fetch("/api/google?action=disconnect", { method: "POST", cache: "no-store" });
-        if (!response.ok) throw new Error("Disconnect failed");
-        await db.cloudConnection.delete("google");
-      };
-      if (navigator.locks) await navigator.locks.request(backgroundSyncTag, signOut);
-      else await signOut();
+      const remove = () => db.quickSync.delete("workspace");
+      if (navigator.locks) await navigator.locks.request(backgroundSyncTag, remove);
+      else await remove();
       setStatus("disconnected");
-    } catch {
-      setMessage("ออกจากบัญชี Google ไม่สำเร็จ");
+      setMessage("");
     } finally {
-      signingOut.current = false;
+      disconnecting.current = false;
     }
   }
 
-  const visibleStatus = online ? status : "offline";
-  return (
-    <GoogleContext.Provider value={{
-      status: visibleStatus, label: syncLabels[visibleStatus], configured,
-      connected: !!connection, email: connection?.email, online, message, sync, disconnect,
-    }}>{children}</GoogleContext.Provider>
-  );
+  const visibleStatus = !connection ? "disconnected" : !online ? "offline" : status === "disconnected" ? "syncing" : status;
+  return <GoogleContext.Provider value={{
+    status: visibleStatus, label: syncLabels[visibleStatus], connected: !!connection, connection, online, message, sync, connect, disconnect,
+  }}>{children}</GoogleContext.Provider>;
 }
 
 export function useGoogle() {
-  const connection = useContext(GoogleContext);
-  if (!connection) throw new Error("GoogleProvider is missing");
-  return connection;
+  const context = useContext(GoogleContext);
+  if (!context) throw new Error("GoogleProvider is missing");
+  return context;
 }

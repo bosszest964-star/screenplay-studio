@@ -231,6 +231,10 @@ button:disabled { cursor: default; opacity: .63; }
 .hero-button { min-height: 45px; padding-inline: 16px; background: #7659ee; }
 .hero-button:not(:disabled):hover { background: #6949e6; }
 .hero-button:focus-visible { outline-color: #d4c5ff; }
+.hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.hero-restore { color: #fff; background: #ffffff17; border-color: #ffffff55; }
+.hero-restore:hover { color: #fff; background: #ffffff26; }
+.hero-content .hero-restore-error { margin: 8px 0 0; color: #ffe1e5; }
 .secondary-button { background: var(--surface); color: var(--text); border-color: var(--border); }
 .secondary-button:not(:disabled):hover { background: var(--surface-subtle); border-color: var(--accent-line); }
 .danger-button { background: var(--danger-button); color: #fff; }

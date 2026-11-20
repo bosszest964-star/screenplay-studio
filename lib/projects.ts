@@ -20,10 +20,10 @@ export interface CloudBookmark {
   localVersion?: number;
 }
 
-interface CloudConnection {
-  id: "google";
-  accountId: string;
-  email?: string;
+export interface QuickSyncConnection {
+  id: "workspace";
+  endpoint: string;
+  key: string;
 }
 
 export const db = new Dexie("sceneform-workspace") as Dexie & {
@@ -31,7 +31,7 @@ export const db = new Dexie("sceneform-workspace") as Dexie & {
   settings: EntityTable<WorkspaceSetting, "key">;
   referenceImages: EntityTable<ReferenceImage, "id">;
   cloudBookmarks: Table<CloudBookmark, [string, string]>;
-  cloudConnection: EntityTable<CloudConnection, "id">;
+  quickSync: EntityTable<QuickSyncConnection, "id">;
 };
 
 db.version(1).stores({
@@ -44,6 +44,8 @@ db.version(3).stores({
   cloudBookmarks: "[accountId+projectId], accountId",
   cloudConnection: "id",
 });
+
+db.version(4).stores({ quickSync: "id", cloudConnection: null });
 
 export function nextProjectTimestamp(project: Pick<Project, "updatedAt">) {
   return Math.max(Date.now(), project.updatedAt + 1);

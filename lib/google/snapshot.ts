@@ -15,7 +15,7 @@ const block = z.union([
 ]);
 const speedKind = z.enum(["dialogue", "parenthetical", "action"]);
 const reference = z.object({ id, name: text, aliases: z.array(text).optional(), imageId: id.optional() });
-const projectSchema = z.object({
+export const projectSchema = z.object({
   id, name: text.min(1).max(100), format: z.enum(["international", "thai", "two-column"]),
   blocks: z.array(block), dialogueQuotes: z.boolean().optional(),
   speedSession: z.object({
@@ -37,7 +37,7 @@ export const driveSnapshot = z.object({
   schema: z.literal(1),
   project: projectSchema,
   images: z.array(z.object({
-    id, fileId: id, hash: z.string().regex(/^[0-9a-f]{64}$/),
+    id, parts: z.number().int().min(1).max(14), hash: z.string().regex(/^[0-9a-f]{64}$/),
     type: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"]),
   })),
 });
@@ -102,7 +102,7 @@ export function pristineSample(project: Project) {
     !project.speedSession && project.dialogueQuotes === undefined;
 }
 
-export function conflictSnapshot(snapshot: Snapshot, id: string): Snapshot {
+export function conflictSnapshot(snapshot: Snapshot, id: string, label = "ฉบับขัดแย้ง"): Snapshot {
   const source = snapshot.project;
   // Remap profile and photo IDs together. Their keys are shared by the reference editor.
   const mapped = new Map<string, string>();
@@ -116,7 +116,7 @@ export function conflictSnapshot(snapshot: Snapshot, id: string): Snapshot {
   const reference = <T extends { id: string; imageId?: string }>(entry: T) => ({
     ...entry, id: remap(entry.id), imageId: entry.imageId ? remap(entry.imageId) : undefined,
   });
-  const name = source.name.slice(0, 80) + " (ฉบับขัดแย้ง)";
+  const name = source.name.slice(0, 80) + ` (${label})`;
   return {
     project: {
       ...source, id, name, editorRevision: 0, updatedAt: Date.now(),
@@ -126,4 +126,23 @@ export function conflictSnapshot(snapshot: Snapshot, id: string): Snapshot {
     },
     images: snapshot.images.map((image) => ({ ...image, id: remap(image.id), projectId: id })),
   };
+}
+
+export async function writeSnapshot(snapshot: Snapshot) {
+  const id = snapshot.project.id;
+  for (const image of snapshot.images) {
+    const previous = await db.referenceImages.get(image.id);
+    if (previous && previous.projectId !== id) throw new Error("รหัสรูปอ้างอิงซ้ำกับโปรเจกต์อื่น");
+  }
+  await db.projects.put(snapshot.project);
+  await db.referenceImages.where("projectId").equals(id).delete();
+  await db.referenceImages.bulkPut(snapshot.images);
+}
+
+export function validateImageIds(project: Project, values: string[]) {
+  const references = [...project.characters ?? [], ...project.locations ?? []]
+    .flatMap(({ imageId }) => imageId ? [imageId] : []);
+  const ids = new Set(values);
+  if (ids.size !== values.length || ids.size !== new Set(references).size ||
+      references.some((value) => !ids.has(value))) throw new Error("ไฟล์รูปอ้างอิงไม่ครบ");
 }
