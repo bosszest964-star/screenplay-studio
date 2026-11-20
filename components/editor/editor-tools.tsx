@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import type { TextBlockKind } from "@/lib/screenplay";
 import { textBlockLabels } from "@/lib/screenplay";
-import { keepTypingFocus } from "./fields";
+import { pressBeforeBlur } from "./fields";
 import type { SceneIndex } from "./script-rows";
 
 const kindIcons = {
@@ -69,12 +69,11 @@ export function CharacterChips({ names, onSelect, current, onAdd }: {
           key={name}
           type="button"
           aria-pressed={onAdd ? name === current : undefined}
-          onPointerDown={keepTypingFocus}
-          onClick={() => onSelect(name)}
+          {...pressBeforeBlur(() => onSelect(name))}
         >{name}</button>
       ))}
       {onAdd && (
-        <button type="button" className="add-character" onPointerDown={keepTypingFocus} onClick={onAdd}>
+        <button type="button" className="add-character" {...pressBeforeBlur(onAdd)}>
           <Plus size={15} /> เพิ่มชื่อ
         </button>
       )}
@@ -124,7 +123,7 @@ export function QuickActions({ onAction, names, onCharacter }: {
         {quickActions.map(({ key, label }) => {
           const Icon = key === "location" ? MapPin : kindIcons[key];
           return (
-            <button type="button" key={key} onPointerDown={keepTypingFocus} onClick={() => onAction(key)}>
+            <button type="button" key={key} {...pressBeforeBlur(() => onAction(key))}>
               <Icon size={17} />{label}
             </button>
           );

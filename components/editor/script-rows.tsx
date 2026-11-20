@@ -24,6 +24,10 @@ interface ScriptRowsProps {
   format: ScreenplayFormat;
   dialogueQuotes: boolean;
   activeId: string;
+  allSuggestionsId: string | null;
+  onDismissSuggestions: (id: string) => void;
+  onChooseLocation: (id: string, location: string) => void;
+  onChooseCharacter: (id: string, name: string) => void;
   onActivate: (id: string) => void;
   onDelete?: (id: string) => void;
   onText: (id: string, text: string) => void;
@@ -44,7 +48,9 @@ const audioKinds = new Set(["character", "parenthetical", "dialogue"]);
 
 function BlockText({
   block, characters, locations, format, dialogueQuotes, onText, onScene, onKeyDown,
-}: Pick<ScriptRowsProps, "characters" | "locations" | "format" | "dialogueQuotes" | "onText" | "onScene" | "onKeyDown"> & { block: TextBlock }) {
+  allSuggestionsId, onDismissSuggestions, onChooseLocation, onChooseCharacter,
+}: Pick<ScriptRowsProps, "characters" | "locations" | "format" | "dialogueQuotes" | "onText" | "onScene" | "onKeyDown" |
+  "allSuggestionsId" | "onDismissSuggestions" | "onChooseLocation" | "onChooseCharacter"> & { block: TextBlock }) {
   const id = fieldId(block.id);
   const setText = (value: string) => onText(block.id, value);
   const keyboard = (event: KeyboardEvent<TextControl>) => onKeyDown(event, block);
@@ -69,7 +75,10 @@ function BlockText({
           value={scene.location}
           choices={locations}
           placeholder="สถานที่"
+          showAll={allSuggestionsId === block.id}
+          onDismiss={() => onDismissSuggestions(block.id)}
           onChange={(location) => onScene(block.id, { location })}
+          onChoose={(location) => onChooseLocation(block.id, location)}
           onKeyDown={keyboard}
         />
         <span className="scene-dash" aria-hidden="true">–</span>
@@ -92,7 +101,10 @@ function BlockText({
         value={block.text}
         choices={characters}
         placeholder="ชื่อตัวละคร"
+        showAll={allSuggestionsId === block.id}
+        onDismiss={() => onDismissSuggestions(block.id)}
         onChange={setText}
+        onChoose={(name) => onChooseCharacter(block.id, name)}
         onKeyDown={keyboard}
       />
     );
@@ -119,6 +131,7 @@ function BlockText({
 
 export function ScriptRows({
   blocks, scenes, characters, locations, format, dialogueQuotes, activeId, onActivate,
+  allSuggestionsId, onDismissSuggestions, onChooseLocation, onChooseCharacter,
   onDelete, onText, onScene, onColumn, onKeyDown,
 }: ScriptRowsProps) {
   const table = format === "two-column";
@@ -149,7 +162,8 @@ export function ScriptRows({
           </button>
         );
         const text = block.kind !== "audioVisual" && (
-          <BlockText {...{ block, characters, locations, format, dialogueQuotes, onText, onScene, onKeyDown }} />
+          <BlockText {...{ block, characters, locations, format, dialogueQuotes, onText, onScene, onKeyDown,
+            allSuggestionsId, onDismissSuggestions, onChooseLocation, onChooseCharacter }} />
         );
         const column = (side: "visual" | "audio") => {
           const label = side === "visual" ? "ภาพ" : "เสียง";

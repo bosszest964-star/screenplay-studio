@@ -35,7 +35,12 @@ function ProductionNav({ projectId, view }: { projectId: string; view: Productio
   );
 }
 
-function Workspace({ project, view, toggleTheme }: { project: Project; view: ProductionView; toggleTheme: () => void }) {
+function Workspace({ project, view, initialReference, toggleTheme }: {
+  project: Project;
+  view: ProductionView;
+  initialReference: string | null;
+  toggleTheme: () => void;
+}) {
   const [showMenu, setShowMenu] = useState(false);
   return (
     <div className="production-shell">
@@ -59,8 +64,8 @@ function Workspace({ project, view, toggleTheme }: { project: Project; view: Pro
         </aside>
         <main className="production-main">
           {view === "board" && <BeatBoard project={project} />}
-          {view === "characters" && <ReferenceManager type="characters" project={project} />}
-          {view === "locations" && <ReferenceManager type="locations" project={project} />}
+          {(view === "characters" || view === "locations") &&
+            <ReferenceManager type={view} project={project} initialReference={initialReference} />}
           {view === "analytics" && <ScriptAnalytics project={project} />}
         </main>
       </div>
@@ -95,6 +100,7 @@ function ProductionRoute({ toggleTheme }: { toggleTheme: () => void }) {
   const projectId = search.get("project");
   const requested = search.get("view");
   const view = views.find((key) => key === requested) ?? "board";
+  const initialReference = search.get("reference");
   const [attempt, setAttempt] = useState(0);
   const result = useLiveQuery(async () => {
     try {
@@ -107,7 +113,8 @@ function ProductionRoute({ toggleTheme }: { toggleTheme: () => void }) {
   if (!result) return <Placeholder />;
   if (result.error) return <Placeholder text="เปิดโปรเจกต์ไม่ได้" onRetry={() => setAttempt((current) => current + 1)} />;
   if (!result.project) return <Placeholder text="ไม่พบโปรเจกต์" />;
-  return <Workspace key={`${result.project.id}-${view}`} project={result.project} view={view} toggleTheme={toggleTheme} />;
+  return <Workspace key={JSON.stringify([result.project.id, view, initialReference])} project={result.project}
+    view={view} initialReference={initialReference} toggleTheme={toggleTheme} />;
 }
 
 export function ProductionPage() {

@@ -313,8 +313,8 @@
   box-shadow: var(--card-shadow);
   overscroll-behavior: contain;
 }
-.suggestion-list > div { padding: 5px 7px; border-radius: 4px; cursor: pointer; overflow-wrap: anywhere; }
-.suggestion-list > div:hover, .suggestion-list > div[aria-selected="true"] { background: var(--accent-tint); color: var(--accent); }
+.suggestion-list > button { display: block; width: 100%; padding: 5px 7px; border-radius: 4px; text-align: start; overflow-wrap: anywhere; }
+.suggestion-list > button:hover, .suggestion-list > button[aria-selected="true"] { background: var(--accent-tint); color: var(--accent); }
 .suggestion-list[data-above] { top: auto; bottom: calc(100% + 3px); }
 
 .script-field { display: flex; min-width: 0; }
@@ -475,7 +475,7 @@
     max-width: 880px;
     padding: 12px max(clamp(10px, 2.3vw, 27px), env(safe-area-inset-right)) 22px max(clamp(10px, 2.3vw, 27px), env(safe-area-inset-left));
   }
-  .suggestion-list > div { min-height: 40px; }
+  .suggestion-list > button { min-height: 44px; }
   .suggestion-field > input, .editor-format select { font-size: 16px; }
   .editor-quickbar {
     position: fixed;
@@ -606,6 +606,7 @@
 .scene-reference-heading a { display: grid; width: 31px; height: 31px; place-items: center; color: var(--accent); border-radius: 6px; }
 .scene-reference-heading a:hover { background: var(--surface-subtle); }
 .scene-reference h4 { font-size: 14px; font-weight: 700; }
+.scene-reference-choices { display: grid; gap: 5px; margin-top: 8px; }
 .scene-reference-location { display: grid; gap: 4px; }
 .scene-reference-location .reference-photo { border-radius: 7px; }
 .scene-reference-location .reference-photo img { object-fit: contain; }
@@ -620,6 +621,7 @@
 @media (max-width: 1199px), (pointer: coarse) and (max-width: 1400px) {
   .scene-outline .scene-ref-button { width: 44px; }
   .scene-reference-heading a { width: 44px; height: 44px; }
+  .scene-reference-choices button { min-height: 44px; }
 }
 @media (max-width: 920px) {
   .editor-topbar .editor-export { width: 44px; height: 44px; padding: 0; }
