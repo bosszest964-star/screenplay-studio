@@ -622,9 +622,8 @@
   .scene-reference-heading a { width: 44px; height: 44px; }
 }
 @media (max-width: 920px) {
-  .editor-topbar .google-status { width: 36px; min-height: 36px; padding: 0; }
   .editor-topbar .editor-export { width: 44px; height: 44px; padding: 0; }
-  .editor-topbar :is(.google-status, .editor-export) > span { display: none; }
+  .editor-topbar .editor-export > span { display: none; }
 }
 @media (max-width: 760px) {
   .editor-topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 3px; }

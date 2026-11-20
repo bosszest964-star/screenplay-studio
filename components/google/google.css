@@ -8,13 +8,17 @@
 .google-panel { display: grid; gap: 10px; font-size: 14px; }
 .google-panel > p { color: var(--muted); }
 .google-panel .dialog-actions { margin-top: 3px; }
-.google-account {
-  display: flex; align-items: center; gap: 9px; padding: 9px;
-  border-radius: 9px; background: var(--surface-subtle); overflow-wrap: anywhere;
-}
-.google-account > svg { flex: none; color: var(--accent); }
-.google-account p { color: var(--faint); }
 @media (max-width: 760px) {
-  .google-status { width: 36px; min-height: 36px; padding: 0; }
-  .google-status > span { display: none; }
+  .google-status { min-height: 36px; padding-inline: 6px; font-size: 12px; }
+  .google-status > svg { display: none; }
 }
+.quick-sync-form, .quick-sync-form ol, .quick-sync-form li { display: grid; gap: 8px; }
+.quick-sync-form ol { list-style: decimal inside; padding: 0; }
+.quick-sync-form li { display: list-item; }
+.quick-sync-form li > * { margin-bottom: 5px; }
+.quick-sync-form p { color: var(--muted); }
+.quick-sync-form .dialog-actions { justify-content: flex-start; }
+.quick-sync-form textarea { width: 100%; min-height: 90px; color: var(--text); background: var(--surface-subtle); }
+.quick-sync-form input { width: 100%; }
+.quick-sync-qr { justify-self: center; width: 184px; height: 184px; image-rendering: pixelated; }
+.quick-sync-link { width: 100%; font-size: 14px; }
