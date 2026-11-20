@@ -11,6 +11,7 @@ const pages = {
   "/editor/": "editor/index.html",
   "/production/": "production/index.html",
   "/print/": "print/index.html",
+  "/call-sheet-print/": "call-sheet-print/index.html",
 };
 
 for (const root of assetRoots) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { ArrowLeft, ChartColumn, Clapperboard, FileText, LayoutGrid, MapPin, Menu, Moon, Sun, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChartColumn, Clapperboard, FileText, LayoutGrid, MapPin, Menu, Moon, Sun, UserRound } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { Dialog } from "@/components/dialog";
@@ -12,11 +12,12 @@ import { productionHref, productionViews, type ProductionView } from "@/lib/prod
 import { editorHref, type Project } from "@/lib/screenplay";
 import { ScriptAnalytics } from "./analytics";
 import { BeatBoard } from "./beat-board";
+import { CallSchedule } from "./call-schedule";
 import { ReferenceManager } from "./reference-manager";
 import "./production.css";
 
 const views = Object.keys(productionViews) as ProductionView[];
-const viewIcons = { board: LayoutGrid, characters: UserRound, locations: MapPin, analytics: ChartColumn };
+const viewIcons = { board: LayoutGrid, characters: UserRound, locations: MapPin, analytics: ChartColumn, schedule: CalendarDays };
 
 function ProductionNav({ projectId, view }: { projectId: string; view: ProductionView }) {
   return (
@@ -27,7 +28,9 @@ function ProductionNav({ projectId, view }: { projectId: string; view: Productio
         return (
           <a className={`nav-item${key === view ? " active" : ""}`} key={key}
             href={productionHref(projectId, key)} aria-current={key === view ? "page" : undefined}>
-            <Icon size={19} /> {productionViews[key]}
+            <Icon size={19} />
+            {key === "schedule" ? <span className="production-schedule-nav">{productionViews[key]}<small>Breakdown / Call Sheet</small></span>
+              : productionViews[key]}
           </a>
         );
       })}
@@ -35,10 +38,11 @@ function ProductionNav({ projectId, view }: { projectId: string; view: Productio
   );
 }
 
-function Workspace({ project, view, initialReference, toggleTheme }: {
+function Workspace({ project, view, initialReference, initialSheet, toggleTheme }: {
   project: Project;
   view: ProductionView;
   initialReference: string | null;
+  initialSheet: string | null;
   toggleTheme: () => void;
 }) {
   const [showMenu, setShowMenu] = useState(false);
@@ -67,13 +71,16 @@ function Workspace({ project, view, initialReference, toggleTheme }: {
           {(view === "characters" || view === "locations") &&
             <ReferenceManager type={view} project={project} initialReference={initialReference} />}
           {view === "analytics" && <ScriptAnalytics project={project} />}
+          {view === "schedule" && <CallSchedule project={project} initialSheet={initialSheet} />}
         </main>
       </div>
       <nav className="bottom-nav production-bottom-nav" aria-label="เมนูวางแผนเรื่อง">
         <a href={editorHref(project.id)}><FileText size={20} /> เขียนบท</a>
         <a href={productionHref(project.id)} aria-current={view === "board" ? "page" : undefined}
           className={view === "board" ? "bottom-active" : ""}><LayoutGrid size={20} /> Beat Board</a>
-        <button type="button" onClick={() => setShowMenu(true)} className={view === "board" ? "" : "bottom-active"}><Menu size={20} /> เครื่องมือ</button>
+        <a href={productionHref(project.id, "schedule")} aria-current={view === "schedule" ? "page" : undefined}
+          className={view === "schedule" ? "bottom-active" : ""}><CalendarDays size={20} /> ใบคิว</a>
+        <button type="button" onClick={() => setShowMenu(true)} className={view === "board" || view === "schedule" ? "" : "bottom-active"}><Menu size={20} /> เครื่องมือ</button>
       </nav>
       {showMenu && (
         <Dialog title="เครื่องมือโปรเจกต์" drawer onClose={() => setShowMenu(false)}>
@@ -114,7 +121,7 @@ function ProductionRoute({ toggleTheme }: { toggleTheme: () => void }) {
   if (result.error) return <Placeholder text="เปิดโปรเจกต์ไม่ได้" onRetry={() => setAttempt((current) => current + 1)} />;
   if (!result.project) return <Placeholder text="ไม่พบโปรเจกต์" />;
   return <Workspace key={JSON.stringify([result.project.id, view, initialReference])} project={result.project}
-    view={view} initialReference={initialReference} toggleTheme={toggleTheme} />;
+    view={view} initialReference={initialReference} initialSheet={search.get("sheet")} toggleTheme={toggleTheme} />;
 }
 
 export function ProductionPage() {

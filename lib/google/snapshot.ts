@@ -31,6 +31,23 @@ export const projectSchema = z.object({
   })).optional(),
   characters: z.array(reference.extend({ age: z.number().int().nonnegative().optional(), personality: text, backstory: text })).optional(),
   locations: z.array(reference.extend({ description: text, lighting: text })).optional(),
+  callSheets: z.array(z.object({
+    id,
+    header: z.object({
+      title: text, queue: text, version: text, date: text, crewCall: text, shootCall: text, location: text,
+      sunrise: text, sunset: text, producer: text, director: text, ad1: text, ad2: text, dop: text,
+    }),
+    rows: z.array(z.object({
+      sceneId: id,
+      source: z.object({
+        number: z.number().int().positive(), dayNight: z.enum(["D", "N"]), interiorExterior: z.enum(["I", "E"]),
+        location: text, description: text, cast: text,
+      }),
+      setting: text, description: text.optional(), cast: text.optional(), support: text, time: text, props: text, note: text,
+    })),
+    castCalls: z.array(z.object({ key: text, pickup: text, note: text })),
+    productionNote: text,
+  })).optional(),
 }) satisfies z.ZodType<Project>;
 
 export const driveSnapshot = z.object({
@@ -99,7 +116,7 @@ export function pristineSample(project: Project) {
   const sample = sampleContent[project.id];
   return sample && project.name === sample.name && project.cover === sample.cover && project.format === sample.format &&
     !project.blocks.length && !project.beats?.length && !project.locations?.length && !project.characters?.length &&
-    !project.speedSession && project.dialogueQuotes === undefined;
+    !project.callSheets?.length && !project.speedSession && project.dialogueQuotes === undefined;
 }
 
 export function conflictSnapshot(snapshot: Snapshot, id: string, label = "ฉบับขัดแย้ง"): Snapshot {

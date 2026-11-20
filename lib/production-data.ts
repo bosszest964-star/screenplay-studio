@@ -1,4 +1,5 @@
 import { boardCards, nameKey, orderScriptByBoard, type BeatCard, type CharacterProfile, type LocationProfile } from "./production";
+import { newCallSheet, type CallSheet } from "./call-sheet";
 import { db, getProject, nextProjectTimestamp } from "./projects";
 import { sceneText, type Project, type ScreenplayBlock, type TextBlock } from "./screenplay";
 
@@ -6,6 +7,33 @@ async function currentProject(id: string) {
   const project = await getProject(id);
   if (!project) throw new Error("ไม่พบโปรเจกต์นี้");
   return project;
+}
+
+export function addCallSheet(projectId: string) {
+  return db.transaction("rw", db.projects, async () => {
+    const project = await currentProject(projectId);
+    const sheet = newCallSheet(project);
+    await db.projects.update(projectId, {
+      callSheets: [...(project.callSheets ?? []), sheet],
+      updatedAt: nextProjectTimestamp(project),
+    });
+    return sheet.id;
+  });
+}
+
+export function editCallSheet(projectId: string, sheetId: string, edit: (sheet: CallSheet, project: Project) => CallSheet | null) {
+  return db.transaction("rw", db.projects, async () => {
+    const project = await currentProject(projectId);
+    const sheets = project.callSheets ?? [];
+    const current = sheets.find(({ id }) => id === sheetId);
+    if (!current) throw new Error("ใบคิวนี้ถูกลบแล้ว");
+    const next = edit(current, project);
+    if (next === current) return;
+    await db.projects.update(projectId, {
+      callSheets: sheets.flatMap((sheet) => sheet !== current ? [sheet] : next ? [next] : []),
+      updatedAt: nextProjectTimestamp(project),
+    });
+  });
 }
 
 async function changeBoard(projectId: string, change: (
