@@ -1,9 +1,10 @@
-import Dexie, { type EntityTable, type Table } from "dexie";
+import Dexie, { type EntityTable, type Table, type Transaction } from "dexie";
+import { isLegacySample, sampleDataVersion, sampleProjects, sampleSignature } from "./samples";
 import type { EditorDraft, Project } from "./screenplay";
 
 interface WorkspaceSetting {
   key: string;
-  value: boolean;
+  value: boolean | number | string;
 }
 
 export interface ReferenceImage {
@@ -46,6 +47,10 @@ db.version(3).stores({
 });
 
 db.version(4).stores({ quickSync: "id", cloudConnection: null });
+db.version(5).stores({}).upgrade((transaction) => applySampleData(transaction));
+db.on("populate", (transaction) => applySampleData(transaction));
+
+const sampleVersionKey = "sample-data-version";
 
 export function nextProjectTimestamp(project: Pick<Project, "updatedAt">) {
   return Math.max(Date.now(), project.updatedAt + 1);
@@ -61,46 +66,56 @@ function normalizeName(name: string) {
   return trimmed;
 }
 
-export async function initializeWorkspace() {
-  await db.transaction("rw", db.projects, db.settings, async () => {
-    if (await db.settings.get("initialized")) return;
+async function applySampleData(transaction: Transaction, reset = false) {
+  const projects = transaction.table<Project, string>("projects");
+  const settings = transaction.table<WorkspaceSetting, string>("settings");
+  const images = transaction.table<ReferenceImage, string>("referenceImages");
+  const version = (await settings.get(sampleVersionKey))?.value;
+  if (!reset && typeof version === "number" && version >= sampleDataVersion) return;
 
-    if ((await db.projects.count()) === 0) {
-      const now = Date.now();
-      const day = 86_400_000;
-      await db.projects.bulkAdd([
-        {
-          id: "sample-last-light",
-          name: "The Last Light",
-          format: "international",
-          blocks: [],
-          cover: "last-light",
-          createdAt: now - 7 * day,
-          updatedAt: now,
-        },
-        {
-          id: "sample-rain",
-          name: "เงาในคืนฝน",
-          format: "thai",
-          blocks: [],
-          cover: "rain",
-          createdAt: now - 9 * day,
-          updatedAt: now - 2 * day,
-        },
-        {
-          id: "sample-mountains",
-          name: "Before the Mountains",
-          format: "two-column",
-          blocks: [],
-          cover: "mountains",
-          createdAt: now - 12 * day,
-          updatedAt: now - 4 * day,
-        },
-      ]);
+  const initialized = (await settings.get("initialized"))?.value === true;
+  const now = Date.now();
+  const day = 86_400_000;
+  for (const [index, sample] of sampleProjects.entries()) {
+    const current = await projects.get(sample.id);
+    const baselineKey = `sample-baseline-${sample.id}`;
+    const nextBaseline = sampleSignature(sample);
+
+    if (!reset && current) {
+      const signature = sampleSignature(current);
+      if (signature === nextBaseline) {
+        await settings.put({ key: baselineKey, value: nextBaseline });
+        continue;
+      }
+      const previousBaseline = (await settings.get(baselineKey))?.value;
+      // Upgrade only starter content that still matches its previous baseline.
+      if (!(signature === previousBaseline || isLegacySample(current)) ||
+          await images.where("projectId").equals(sample.id).count()) continue;
+    } else if (!reset && initialized) {
+      continue;
     }
 
-    await db.settings.add({ key: "initialized", value: true });
-  });
+    if (reset) await images.where("projectId").equals(sample.id).delete();
+    await projects.put({
+      ...sample,
+      createdAt: current?.createdAt ?? now - (7 + index * 2) * day,
+      updatedAt: current ? nextProjectTimestamp(current) : now - (reset ? index : index * 2 * day),
+      editorRevision: current ? (current.editorRevision ?? 0) + 1 : reset ? now : 0,
+    });
+    await settings.put({ key: baselineKey, value: nextBaseline });
+  }
+  await settings.bulkPut([
+    { key: "initialized", value: true },
+    { key: sampleVersionKey, value: sampleDataVersion },
+  ]);
+}
+
+export function initializeWorkspace() {
+  return db.transaction("rw", db.projects, db.settings, db.referenceImages, (transaction) => applySampleData(transaction));
+}
+
+export function resetSampleProjects() {
+  return db.transaction("rw", db.projects, db.settings, db.referenceImages, (transaction) => applySampleData(transaction, true));
 }
 
 export function listProjects() {

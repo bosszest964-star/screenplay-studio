@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { projectContent, stableJson } from "../project-content";
 import { db, type ReferenceImage } from "../projects";
 import type { Project } from "../screenplay";
 
@@ -66,19 +67,6 @@ export interface Snapshot {
 
 export const deletedHash = "deleted";
 
-type Content = Omit<Project, "updatedAt" | "createdAt" | "editorRevision">;
-
-function contentOf({ updatedAt, createdAt, editorRevision, speedSession, ...project }: Project): Content {
-  return { ...project, speedSession: speedSession ?? null };
-}
-
-function stableJson(value: unknown) {
-  return JSON.stringify(value, (_, item) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) return item;
-    return Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]]));
-  });
-}
-
 export async function sha256(source: ArrayBuffer) {
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", source)),
     (value) => value.toString(16).padStart(2, "0")).join("");
@@ -93,7 +81,7 @@ export async function fingerprint(snapshot: Snapshot) {
     ...image, hash: await sha256(await image.blob.arrayBuffer()),
   })));
   const identity = images.map(({ id, hash, blob }) => ({ id, hash, type: blob.type })).sort((a, b) => a.id.localeCompare(b.id));
-  const hash = await hashText(stableJson([contentOf(snapshot.project), identity]));
+  const hash = await hashText(stableJson([projectContent(snapshot.project), identity]));
   return { hash, images };
 }
 
@@ -104,19 +92,6 @@ export function readSnapshot(projectId: string) {
     const images = await db.referenceImages.where("projectId").equals(projectId).toArray();
     return { project, images };
   });
-}
-
-const sampleContent: Record<string, Pick<Project, "name" | "cover" | "format">> = {
-  "sample-last-light": { name: "The Last Light", cover: "last-light", format: "international" },
-  "sample-rain": { name: "เงาในคืนฝน", cover: "rain", format: "thai" },
-  "sample-mountains": { name: "Before the Mountains", cover: "mountains", format: "two-column" },
-};
-
-export function pristineSample(project: Project) {
-  const sample = sampleContent[project.id];
-  return sample && project.name === sample.name && project.cover === sample.cover && project.format === sample.format &&
-    !project.blocks.length && !project.beats?.length && !project.locations?.length && !project.characters?.length &&
-    !project.callSheets?.length && !project.speedSession && project.dialogueQuotes === undefined;
 }
 
 export function conflictSnapshot(snapshot: Snapshot, id: string, label = "ฉบับขัดแย้ง"): Snapshot {

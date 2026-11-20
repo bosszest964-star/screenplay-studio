@@ -1,7 +1,8 @@
 import { db, nextProjectTimestamp, type CloudBookmark } from "../projects";
 import { decodeBytes, encodeBytes, QuickSyncClient, type Revision } from "../quick-sync/client";
+import { pristineSample } from "../samples";
 import {
-  conflictSnapshot, deletedHash, driveSnapshot, fingerprint, hashText, pristineSample, readSnapshot, sha256,
+  conflictSnapshot, deletedHash, driveSnapshot, fingerprint, hashText, readSnapshot, sha256,
   validateImageIds, writeSnapshot, type Snapshot,
 } from "./snapshot";
 
