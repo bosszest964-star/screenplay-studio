@@ -7,6 +7,7 @@ export const productionViews = {
   characters: "ตัวละคร",
   locations: "สถานที่",
   analytics: "สถิติบท",
+  schedule: "ใบคิวถ่ายทำ",
 } as const;
 
 export type ProductionView = keyof typeof productionViews;

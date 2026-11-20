@@ -16,6 +16,9 @@ const navigationPaths = new Map([
   ["/print", "/print/"],
   ["/print/", "/print/"],
   ["/print/index.html", "/print/"],
+  ["/call-sheet-print", "/call-sheet-print/"],
+  ["/call-sheet-print/", "/call-sheet-print/"],
+  ["/call-sheet-print/index.html", "/call-sheet-print/"],
 ]);
 
 self.addEventListener("sync", (event) => {

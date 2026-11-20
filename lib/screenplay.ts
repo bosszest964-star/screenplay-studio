@@ -1,4 +1,5 @@
 import type { BeatCard, CharacterProfile, LocationProfile } from "./production";
+import type { CallSheet } from "./call-sheet";
 
 export const screenplayFormats = {
   international: "มาตรฐานสากล",
@@ -87,6 +88,7 @@ export interface Project extends EditorDraft {
   beats?: BeatCard[];
   characters?: CharacterProfile[];
   locations?: LocationProfile[];
+  callSheets?: CallSheet[];
 }
 
 export function editorHref(id: string, sceneId?: string) {

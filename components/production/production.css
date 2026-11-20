@@ -52,6 +52,8 @@
   box-shadow: var(--shadow);
 }
 .production-nav > p { margin: 1px 5px 9px; color: var(--faint); font-size: 12px; font-weight: 700; }
+.production-schedule-nav { display: grid; }
+.production-schedule-nav small { font-size: 11px; line-height: 1.25; }
 .production-main { min-width: 0; }
 .production-heading {
   display: flex;
@@ -265,6 +267,7 @@
     min-height: 57px;
     padding: max(6px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 6px max(12px, env(safe-area-inset-left));
   }
+  .production-bottom-nav { grid-template-columns: repeat(4, minmax(0, 150px)); }
   .production-bottom-nav a {
     display: flex;
     min-height: 45px;
